@@ -21,10 +21,10 @@
 /* 편집기(IDE)풍 화면. 색·글꼴·간격은 모두 토큰으로 두고 테마만 바꾼다. 회색은 푸른 기가 도는 한 계열, 강조색은 파랑 하나. */
 :root[data-theme=dark]{color-scheme:dark;--bg:#0f1116;--side:#14171e;--bar:#0b0d11;--line:#232833;--ink:#c5cad6;--strong:#f2f4f8;--sub:#7f8798;
   --acc:#6b9bff;--btn:#3f6fd6;--btn-h:#4d7ce0;--sel:rgba(107,155,255,.14);--hover:rgba(255,255,255,.05);--input:#0b0d11;--input-line:#2a303c;
-  --ok:#4cc38a;--bad:#f2777a;--bad-bg:rgba(242,119,122,.14);--lnum:#4a5162;--chip:#1c212b;--zebra:rgba(255,255,255,.022)}
+  --ok:#4cc38a;--bad:#f2777a;--bad-bg:rgba(242,119,122,.14);--lnum:#4a5162;--chip:#1c212b;--pat:rgba(255,255,255,.05);--zebra:rgba(255,255,255,.022)}
 :root[data-theme=light]{color-scheme:light;--bg:#ffffff;--side:#f6f7f9;--bar:#eef0f4;--line:#e2e5eb;--ink:#353b47;--strong:#11141a;--sub:#6a7283;
   --acc:#2f5fd0;--btn:#2f5fd0;--btn-h:#274fb3;--sel:rgba(47,95,208,.09);--hover:rgba(15,20,30,.05);--input:#ffffff;--input-line:#cfd4dd;
-  --ok:#1f8a5b;--bad:#c93a3a;--bad-bg:#fdecec;--lnum:#a3aab8;--chip:#eceff4;--zebra:rgba(15,20,30,.022)}
+  --ok:#1f8a5b;--bad:#c93a3a;--bad-bg:#fdecec;--lnum:#a3aab8;--chip:#eceff4;--pat:rgba(17,20,26,.055);--zebra:rgba(15,20,30,.022)}
 :root{--ui:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;--mono:"JetBrains Mono",Consolas,"SF Mono",Menlo,"D2Coding",ui-monospace,monospace;
   --ease:cubic-bezier(.2,.7,.2,1);--r-s:6px;--r-m:10px;--r-l:14px}
 *{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
@@ -69,6 +69,11 @@ svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke
 button.gtab:not(.on):hover{color:var(--ink);background:var(--hover)}
 .scroll{flex:1;min-height:0;overflow:auto}
 .qno{display:inline-block;color:var(--acc);font:600 11.5px var(--mono);letter-spacing:.02em}
+
+/* 'AI' 글씨를 흩어 놓은 문양 배경(한 가지 색, 타일 반복). 시작 화면과 채팅 대화 영역에 쓴다. */
+.pattern{position:relative;isolation:isolate}
+.pattern::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:var(--pat);
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='420' font-family='Arial,Helvetica,sans-serif' font-weight='700' text-anchor='middle' dominant-baseline='middle'%3E%3Ctext x='59' y='38' font-size='18' transform='rotate(-32 59 38)' fill='none' stroke='black' stroke-width='1.1'%3EAI%3C/text%3E%3Ctext x='111' y='45' font-size='27' transform='rotate(30 111 45)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='208' y='26' font-size='13' transform='rotate(-24 208 26)' fill='black'%3EAI%3C/text%3E%3Ctext x='306' y='28' font-size='13' transform='rotate(-8 306 28)' fill='black'%3EAI%3C/text%3E%3Ctext x='395' y='45' font-size='27' transform='rotate(14 395 45)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='25' y='139' font-size='15' transform='rotate(0 25 139)' fill='black'%3EAI%3C/text%3E%3Ctext x='112' y='119' font-size='27' transform='rotate(-15 112 119)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='215' y='121' font-size='27' transform='rotate(30 215 121)' fill='black'%3EAI%3C/text%3E%3Ctext x='278' y='115' font-size='27' transform='rotate(30 278 115)' fill='black'%3EAI%3C/text%3E%3Ctext x='377' y='142' font-size='18' transform='rotate(8 377 142)' fill='none' stroke='black' stroke-width='1.1'%3EAI%3C/text%3E%3Ctext x='49' y='201' font-size='15' transform='rotate(0 49 201)' fill='black'%3EAI%3C/text%3E%3Ctext x='134' y='202' font-size='18' transform='rotate(-24 134 202)' fill='none' stroke='black' stroke-width='1.1'%3EAI%3C/text%3E%3Ctext x='198' y='204' font-size='22' transform='rotate(22 198 204)' fill='black'%3EAI%3C/text%3E%3Ctext x='278' y='212' font-size='34' transform='rotate(8 278 212)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='381' y='213' font-size='18' transform='rotate(22 381 213)' fill='none' stroke='black' stroke-width='1.1'%3EAI%3C/text%3E%3Ctext x='58' y='293' font-size='13' transform='rotate(-24 58 293)' fill='none' stroke='black' stroke-width='1.1'%3EAI%3C/text%3E%3Ctext x='119' y='297' font-size='34' transform='rotate(22 119 297)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='224' y='288' font-size='22' transform='rotate(22 224 288)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='280' y='278' font-size='27' transform='rotate(0 280 278)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='374' y='309' font-size='15' transform='rotate(22 374 309)' fill='none' stroke='black' stroke-width='1.1'%3EAI%3C/text%3E%3Ctext x='38' y='370' font-size='22' transform='rotate(-15 38 370)' fill='black'%3EAI%3C/text%3E%3Ctext x='118' y='375' font-size='27' transform='rotate(8 118 375)' fill='black'%3EAI%3C/text%3E%3Ctext x='227' y='365' font-size='22' transform='rotate(-15 227 365)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='284' y='377' font-size='34' transform='rotate(-15 284 377)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='365' y='379' font-size='13' transform='rotate(8 365 379)' fill='black'%3EAI%3C/text%3E%3C/svg%3E") center/420px 420px;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='420' font-family='Arial,Helvetica,sans-serif' font-weight='700' text-anchor='middle' dominant-baseline='middle'%3E%3Ctext x='59' y='38' font-size='18' transform='rotate(-32 59 38)' fill='none' stroke='black' stroke-width='1.1'%3EAI%3C/text%3E%3Ctext x='111' y='45' font-size='27' transform='rotate(30 111 45)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='208' y='26' font-size='13' transform='rotate(-24 208 26)' fill='black'%3EAI%3C/text%3E%3Ctext x='306' y='28' font-size='13' transform='rotate(-8 306 28)' fill='black'%3EAI%3C/text%3E%3Ctext x='395' y='45' font-size='27' transform='rotate(14 395 45)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='25' y='139' font-size='15' transform='rotate(0 25 139)' fill='black'%3EAI%3C/text%3E%3Ctext x='112' y='119' font-size='27' transform='rotate(-15 112 119)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='215' y='121' font-size='27' transform='rotate(30 215 121)' fill='black'%3EAI%3C/text%3E%3Ctext x='278' y='115' font-size='27' transform='rotate(30 278 115)' fill='black'%3EAI%3C/text%3E%3Ctext x='377' y='142' font-size='18' transform='rotate(8 377 142)' fill='none' stroke='black' stroke-width='1.1'%3EAI%3C/text%3E%3Ctext x='49' y='201' font-size='15' transform='rotate(0 49 201)' fill='black'%3EAI%3C/text%3E%3Ctext x='134' y='202' font-size='18' transform='rotate(-24 134 202)' fill='none' stroke='black' stroke-width='1.1'%3EAI%3C/text%3E%3Ctext x='198' y='204' font-size='22' transform='rotate(22 198 204)' fill='black'%3EAI%3C/text%3E%3Ctext x='278' y='212' font-size='34' transform='rotate(8 278 212)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='381' y='213' font-size='18' transform='rotate(22 381 213)' fill='none' stroke='black' stroke-width='1.1'%3EAI%3C/text%3E%3Ctext x='58' y='293' font-size='13' transform='rotate(-24 58 293)' fill='none' stroke='black' stroke-width='1.1'%3EAI%3C/text%3E%3Ctext x='119' y='297' font-size='34' transform='rotate(22 119 297)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='224' y='288' font-size='22' transform='rotate(22 224 288)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='280' y='278' font-size='27' transform='rotate(0 280 278)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='374' y='309' font-size='15' transform='rotate(22 374 309)' fill='none' stroke='black' stroke-width='1.1'%3EAI%3C/text%3E%3Ctext x='38' y='370' font-size='22' transform='rotate(-15 38 370)' fill='black'%3EAI%3C/text%3E%3Ctext x='118' y='375' font-size='27' transform='rotate(8 118 375)' fill='black'%3EAI%3C/text%3E%3Ctext x='227' y='365' font-size='22' transform='rotate(-15 227 365)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='284' y='377' font-size='34' transform='rotate(-15 284 377)' fill='none' stroke='black' stroke-width='1.4'%3EAI%3C/text%3E%3Ctext x='365' y='379' font-size='13' transform='rotate(8 365 379)' fill='black'%3EAI%3C/text%3E%3C/svg%3E") center/420px 420px}
 
 /* 시작 */
 .editor{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
@@ -205,7 +210,7 @@ button.gtab:not(.on):hover{color:var(--ink);background:var(--hover)}
 .att.over em{color:var(--bad);font-weight:600}
 .att.over span{background:var(--bad-bg)}
 .att.over .meter b{background:var(--bad)}
-.composer{position:relative;flex:none;border-top:1px solid var(--line)}
+.composer{position:relative;flex:none;border-top:1px solid var(--line);background:var(--bg)}
 .send{display:flex;gap:8px;padding:10px 14px 14px;flex:none}
 .send textarea{flex:1;resize:none;height:58px;padding:10px 12px;background:var(--input);border:0;box-shadow:inset 0 0 0 1px var(--input-line);border-radius:var(--r-m);font-size:14px;line-height:1.45}
 .send .btn{align-self:stretch;border-radius:var(--r-m);min-width:64px}
@@ -386,7 +391,7 @@ function render() {
 }
 
 function home() { // 제목과 응시하기 버튼만 둔다
-  return shell('AI 역량 모의시험', `<main class="editor"><div class="hero">
+  return shell('AI 역량 모의시험', `<main class="editor"><div class="hero pattern">
     <h1>AI 역량 모의시험</h1>
     <button class="btn start" data-act="start">${ICON.play}응시하기</button>
   </div></main>`, `<span class="sp"></span>`);
@@ -407,7 +412,7 @@ function exam() {
           <div class="scroll" id="qbox"></div>
         </section>
         <section class="panel" id="pf"><div class="gtabs" id="files" draggable="true" data-drag="pf"></div><div class="scroll" id="fv"></div></section>
-        <section class="panel" id="pc">
+        <section class="panel pattern" id="pc">
           <div class="ph" draggable="true" data-drag="pc">AI 채팅</div>
           <div class="msgs" id="msgs" aria-live="polite"></div>
           <div class="composer"><div class="pop" id="pop" hidden></div>
