@@ -11,20 +11,20 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap">
 <script>
-// 화면이 그려지기 전에 테마를 정한다(저장된 선택 → 기기 설정 순)
+// 화면이 그려지기 전에 테마를 정한다. 기본은 다크, 버튼으로 바꾼 선택이 저장돼 있으면 그것을 따른다
 (function () {
   var t; try { t = localStorage.getItem('theme'); } catch (e) {}
-  document.documentElement.dataset.theme = t === 'light' || t === 'dark' ? t : (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  document.documentElement.dataset.theme = t === 'light' ? 'light' : 'dark';
 })();
 </script>
 <style>
 /* 편집기(IDE)풍 화면. 색·글꼴·간격은 모두 토큰으로 두고 테마만 바꾼다. 회색은 푸른 기가 도는 한 계열, 강조색은 파랑 하나. */
 :root[data-theme=dark]{color-scheme:dark;--bg:#0f1116;--side:#14171e;--bar:#0b0d11;--line:#232833;--ink:#c5cad6;--strong:#f2f4f8;--sub:#7f8798;
   --acc:#6b9bff;--btn:#3f6fd6;--btn-h:#4d7ce0;--sel:rgba(107,155,255,.14);--hover:rgba(255,255,255,.05);--input:#0b0d11;--input-line:#2a303c;
-  --ok:#4cc38a;--bad:#f2777a;--bad-bg:rgba(242,119,122,.14);--lnum:#4a5162;--chip:#1c212b;--pat:rgba(255,255,255,.05);--zebra:rgba(255,255,255,.022)}
+  --ok:#4cc38a;--bad:#f2777a;--bad-bg:rgba(242,119,122,.14);--lnum:#4a5162;--chip:#1c212b;--pat:rgba(255,255,255,.12);--zebra:rgba(255,255,255,.022)}
 :root[data-theme=light]{color-scheme:light;--bg:#ffffff;--side:#f6f7f9;--bar:#eef0f4;--line:#e2e5eb;--ink:#353b47;--strong:#11141a;--sub:#6a7283;
   --acc:#2f5fd0;--btn:#2f5fd0;--btn-h:#274fb3;--sel:rgba(47,95,208,.09);--hover:rgba(15,20,30,.05);--input:#ffffff;--input-line:#cfd4dd;
-  --ok:#1f8a5b;--bad:#c93a3a;--bad-bg:#fdecec;--lnum:#a3aab8;--chip:#eceff4;--pat:rgba(17,20,26,.055);--zebra:rgba(15,20,30,.022)}
+  --ok:#1f8a5b;--bad:#c93a3a;--bad-bg:#fdecec;--lnum:#a3aab8;--chip:#eceff4;--pat:rgba(17,20,26,.11);--zebra:rgba(15,20,30,.022)}
 :root{--ui:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;--mono:"JetBrains Mono",Consolas,"SF Mono",Menlo,"D2Coding",ui-monospace,monospace;
   --ease:cubic-bezier(.2,.7,.2,1);--r-s:6px;--r-m:10px;--r-l:14px}
 *{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
