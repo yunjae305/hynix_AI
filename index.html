@@ -202,8 +202,6 @@ button.gtab:not(.on):hover{color:var(--ink);background:var(--hover)}
 .sheet tr:hover td{background:var(--hover)}
 .shotbox{overflow:auto;background:#fff;margin:14px;border-radius:var(--r-m);border:1px solid var(--line)}
 .shot{display:block;width:max(100%,640px)} /* 좁은 화면에서도 글자가 읽히도록 최소 폭을 두고 좌우로 민다 */
-.dl{display:inline-block;margin:0 14px;color:var(--acc);font-size:13px;font-weight:500;line-height:40px;text-decoration:none}
-.dl:hover{text-decoration:underline}
 
 /* AI 채팅 */
 .ph{display:flex;align-items:center;gap:8px;height:38px;padding:0 16px;font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--sub);background:var(--side);border-bottom:1px solid var(--line);flex:none}
@@ -322,19 +320,23 @@ console.assert(!isCorrect({ type: 'short', answers: ['3'] }, ''), '빈 답은 �
 console.assert(!isCorrect({ type: 'mc', answer: 1 }, undefined), '미응답은 오답');
 
 // ───────── 상태
-// 시험 중 전체화면을 벗어나면 한 번에 3점 감점, 누적 21점이면 자동 탈락
+// 시험 중 화면을 벗어나면(전체화면 해제 · 탭 전환 · 창 전환) 한 번에 3점 감점, 누적 21점이면 자동 탈락
 const PENALTY = 3, FAIL_AT = 21;
-const fresh = () => ({ screen: 'home', q: 0, b: 0, tab: 'q', exits: 0, inFull: false, answers: {}, chats: BUNDLES.map(() => []), drafts: BUNDLES.map(() => ''), file: BUNDLES.map(() => 0) });
+const fresh = () => ({ screen: 'home', q: 0, b: 0, tab: 'q', exits: 0, inFull: false, warn: false, lastV: 0, answers: {}, chats: BUNDLES.map(() => []), drafts: BUNDLES.map(() => ''), file: BUNDLES.map(() => 0) });
 let S = fresh();
 // 새로고침·탭 전환으로 답이 사라지지 않도록 세션에 저장해 둔다
-const SAVE_KEY = 'ai-exam-mock-v5';
+const SAVE_KEY = 'ai-exam-mock-v6';
 try {
   const saved = JSON.parse(sessionStorage.getItem(SAVE_KEY));
   if (saved && saved.chats?.length === BUNDLES.length && saved.q < TOTAL) S = saved;
 } catch (e) { /* 저장소를 못 쓰는 환경이면 새로 시작 */ }
 const penalty = () => S.exits * PENALTY;
-// 전체화면 상태에서 새로고침하면 전체화면이 풀리므로 이탈 1회로 센다
-if (S.screen === 'exam' && S.inFull) { S.exits++; S.inFull = false; if (penalty() >= FAIL_AT) S.screen = 'result'; }
+// 전체화면 상태에서 새로고침하면 전체화면이 풀리므로 이탈 1회로 센다(새로고침 직전에 탭 숨김으로 이미 셌으면 다시 세지 않는다)
+if (S.screen === 'exam' && S.inFull) {
+  S.inFull = false;
+  if (Date.now() - S.lastV > 3000) { S.exits++; S.warn = true; }
+  if (penalty() >= FAIL_AT) S.screen = 'result';
+}
 const save = () => {
   const inp = document.getElementById('inp');
   if (inp) S.drafts[S.b] = inp.value;
@@ -367,6 +369,8 @@ const ICON = {
   play: '<svg viewBox="0 0 16 16"><path d="M4.5 2.8l8 5.2-8 5.2z" fill="currentColor"/></svg>',
 };
 const canFull = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+// 폰·태블릿(터치 전용 기기)은 전체화면을 쓰지 않는다. 탭·앱 전환 감지만 적용한다.
+const useFull = canFull && !matchMedia('(hover: none) and (pointer: coarse)').matches;
 const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 function enterFull() { // 끝나면 풀리는 약속을 돌려준다. 미지원·거부여도 오류를 내지 않는다
   const el = document.documentElement;
@@ -381,28 +385,54 @@ function toggleTheme() {
   document.documentElement.dataset.theme = t;
   try { localStorage.setItem('theme', t); } catch (e) { /* 저장 못 해도 이번 화면에는 적용된다 */ }
 }
-async function startExam() { S = fresh(); S.screen = 'exam'; await enterFull(); S.inFull = isFull(); render(); }
+async function startExam() {
+  S = fresh(); S.screen = 'exam'; S.lastV = Date.now(); // 시작 직후 화면 전환 중에 생기는 신호는 이탈로 세지 않는다
+  if (useFull) await enterFull();
+  S.inFull = isFull(); render();
+}
 function goHome() { S = fresh(); exitFull(); render(); }
 
-// 전체화면이 아니면 시험 화면을 가리고, 누적 감점을 보여준다(전체화면을 지원하지 않는 기기는 해당 없음)
+// 가림막: 전체화면이 아니거나(PC) 화면 이탈이 감지된 직후에 시험 화면을 가리고 누적 감점을 보여준다
 function syncGuard() {
   const g = document.getElementById('guard'); if (!g) return;
-  g.hidden = !canFull || isFull();
-  document.getElementById('guardMsg').textContent = S.exits ? `전체화면 이탈 ${S.exits}회 · 감점 ${penalty()}점 (누적 ${FAIL_AT}점이면 탈락)` : '';
-  document.getElementById('pen').textContent = S.exits ? `전체화면 이탈 ${S.exits}회 · −${penalty()}점` : '';
+  const needFull = useFull && !isFull();
+  g.hidden = !(needFull || S.warn);
+  g.querySelector('h2').textContent = needFull ? '전체화면에서만 응시할 수 있습니다' : '시험 화면을 벗어났습니다';
+  g.querySelector('button').textContent = needFull ? '전체화면으로 돌아가기' : '시험으로 돌아가기';
+  document.getElementById('guardMsg').textContent = S.exits ? `화면 이탈 ${S.exits}회 · 감점 ${penalty()}점 (누적 ${FAIL_AT}점이면 탈락)` : '';
+  document.getElementById('pen').textContent = S.exits ? `화면 이탈 ${S.exits}회 · −${penalty()}점` : '';
 }
-// 시험 중 전체화면이 풀리면(Esc 등) 감점한다. 제출·나가기로 풀리는 것은 시험 화면이 아니므로 세지 않는다.
+// 이탈 1회 기록. 한 번의 이탈이 여러 신호(창 포커스 잃음 · 탭 숨김 · 전체화면 해제)로 겹쳐 들어오므로 짧은 시간 안의 중복은 버린다.
+function violate() {
+  if (S.screen !== 'exam') return;
+  const now = Date.now();
+  if (now - S.lastV < 1500) return;
+  S.lastV = now; S.exits++; S.warn = true;
+  if (penalty() >= FAIL_AT) { save(); S.screen = 'result'; exitFull(); render(); save(); return; }
+  save(); syncGuard();
+}
+// 전체화면 해제(Esc 등). 제출·나가기로 풀리는 것은 시험 화면이 아니므로 세지 않는다.
 function onFullChange() {
   if (S.screen !== 'exam') return;
   if (isFull()) S.inFull = true;
-  else if (S.inFull) {
-    S.inFull = false; S.exits++;
-    if (penalty() >= FAIL_AT) { save(); S.screen = 'result'; render(); save(); return; }
-  }
-  save(); syncGuard();
+  else if (S.inFull) { S.inFull = false; violate(); }
+  if (S.screen === 'exam') { save(); syncGuard(); }
 }
 document.addEventListener('fullscreenchange', onFullChange);
 document.addEventListener('webkitfullscreenchange', onFullChange);
+// 탭 전환 · 창 전환(다른 프로그램, 다른 앱). 돌아올 때까지는 한 번으로 센다.
+let away = false;
+const leftView = () => { if (!away) { away = true; violate(); } };
+const backToView = () => { if (!document.hidden && document.hasFocus()) away = false; };
+addEventListener('blur', leftView);
+addEventListener('focus', backToView);
+document.addEventListener('visibilitychange', () => (document.hidden ? leftView() : backToView()));
+// 가림막의 돌아가기 버튼
+async function resumeExam() {
+  S.warn = false; S.lastV = Date.now();
+  if (useFull && !isFull()) await enterFull();
+  save(); syncGuard();
+}
 
 // 화면 안 확인 창. 브라우저 기본 확인 창은 전체화면을 풀어 버리므로 쓰지 않는다.
 function ask(message, okLabel) {
@@ -418,7 +448,7 @@ function ask(message, okLabel) {
 document.addEventListener('click', (e) => {
   const act = e.target.closest('[data-act]')?.dataset.act;
   if (act === 'theme') toggleTheme();
-  if (act === 'full') enterFull();
+  if (act === 'full') resumeExam();
   if (act === 'start') startExam();
   if (act === 'home') goHome();
 });
@@ -453,7 +483,7 @@ function home() { // 위아래 표시줄 없이 제목과 응시하기 버튼만
 
 function exam() {
   const B = BUNDLES[S.b];
-  return shell(`${B.title} — AI 역량 모의시험`, `<div class="guard" id="guard" hidden><h2>전체화면에서만 응시할 수 있습니다</h2><p id="guardMsg"></p><button class="btn start" data-act="full">전체화면으로 돌아가기</button></div>
+  return shell(`${B.title} — AI 역량 모의시험`, `<div class="guard" id="guard" hidden><h2></h2><p id="guardMsg"></p><button class="btn start" data-act="full"></button></div>
   <div class="work">
     <nav class="activity" aria-label="보기 전환">
       <button class="ab on" id="abSide" aria-label="탐색기 열기/닫기" title="탐색기">${ICON.files}</button>
@@ -534,12 +564,11 @@ function bindExam() {
     $('files').innerHTML = B.files.map((f, k) => `<button class="gtab chip mono ${k === i ? 'on' : ''}" data-f="${k}"><i class="ft" data-x="${ext(f.name)}"></i>${esc(f.name)}</button>`).join('');
     document.querySelectorAll('#tree .file').forEach((n) => n.classList.toggle('on', +n.dataset.f === i));
     const f = B.files[i];
-    const link = f.url ? `<a class="dl" href="${esc(f.url)}" target="_blank" rel="noopener"${f.kind === 'sheet' ? ' download' : ''}>${f.kind === 'sheet' ? '엑셀 파일 내려받기' : '원본 열기'}</a>` : '';
     if (f.kind === 'image' || f.kind === 'pdf') { // PDF는 모바일에서 바로 안 보이는 경우가 많아 미리보기 이미지로 보여준다
-      $('fv').innerHTML = `<div class="shotbox" tabindex="0"><img class="shot" src="${esc(f.preview || f.url)}" alt="${esc(f.name)} 미리보기"></div>${link}`;
+      $('fv').innerHTML = `<div class="shotbox" tabindex="0"><img class="shot" src="${esc(f.preview || f.url)}" alt="${esc(f.name)} 미리보기"></div>`;
     } else if (f.kind === 'sheet') {
       const rows = f.body.split('\n').map((l) => l.split(','));
-      $('fv').innerHTML = `<div class="sheet"><table>${rows.map((r, k) => `<tr>${r.map((c) => (k ? `<td>${esc(c)}</td>` : `<th>${esc(c)}</th>`)).join('')}</tr>`).join('')}</table></div>${link}`;
+      $('fv').innerHTML = `<div class="sheet"><table>${rows.map((r, k) => `<tr>${r.map((c) => (k ? `<td>${esc(c)}</td>` : `<th>${esc(c)}</th>`)).join('')}</tr>`).join('')}</table></div>`;
     } else { // 줄 번호가 붙은 코드 보기. 표(CSV)만 가로 스크롤, 나머지 글자 파일은 줄바꿈
       $('fv').innerHTML = `<div class="code${f.name.endsWith('.csv') ? '' : ' wrap'}">${f.body.split('\n').map((l) => `<div class="l">${esc(l) || ' '}</div>`).join('')}</div>`;
     }
@@ -687,7 +716,7 @@ function result() {
     <div class="sum">
       <div><div class="ring"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="fg" cx="60" cy="60" r="52" stroke-dasharray="${(2 * Math.PI * 52).toFixed(1)}" stroke-dashoffset="${(2 * Math.PI * 52 * (1 - final / TOTAL)).toFixed(1)}"/></svg>
         ${failed ? `<div class="score fail">탈락</div>` : `<div class="score">${final}<small> / ${TOTAL}</small></div>`}</div>
-        <p class="lead">정답 ${total}개${pen ? `<br><span class="pen">전체화면 이탈 ${S.exits}회 · 감점 ${pen}점${failed ? ' · 자동 탈락' : ''}</span>` : ''}</p></div>
+        <p class="lead">정답 ${total}개${pen ? `<br><span class="pen">화면 이탈 ${S.exits}회 · 감점 ${pen}점${failed ? ' · 자동 탈락' : ''}</span>` : ''}</p></div>
       <div class="bars">${rows.map((r) => `<div class="bar"><span>${esc(r.B.title)}</span><i><b style="width:${r.n / 3 * 100}%"></b></i><span class="mono">${r.n}/3</span></div>`).join('')}</div>
     </div>
     <h2>문제별 해설</h2>
