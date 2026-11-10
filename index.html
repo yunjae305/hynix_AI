@@ -3,105 +3,185 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
-<title>AI 역량시험 모의고사</title>
+<title>AI 역량 모의시험</title>
+<script>
+// 화면이 그려지기 전에 테마를 정한다(저장된 선택 → 기기 설정 순)
+(function () {
+  var t; try { t = localStorage.getItem('theme'); } catch (e) {}
+  document.documentElement.dataset.theme = t === 'light' || t === 'dark' ? t : (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+})();
+</script>
 <style>
-:root{--bg:#f6f6f3;--card:#fff;--ink:#16181d;--sub:#6b7280;--line:#e3e3de;--acc:#16a34a;--acc-bg:#e9f6ee;--bad:#dc2626;--r:14px}
+/* 편집기(IDE)풍 화면. 색은 모두 토큰으로 두고 테마만 바꾼다. */
+:root[data-theme=dark]{color-scheme:dark;--bg:#1e1e1e;--side:#252526;--act:#333333;--act-ink:#8b8b8b;--tbar:#323233;--tbar-ink:#cccccc;--tab:#2d2d2d;--line:#3c3c3c;--ink:#cccccc;--strong:#ffffff;--sub:#9d9d9d;
+  --btn:#0e639c;--btn-h:#1177bb;--focus:#3794ff;--sel:#04395e;--hover:#2a2d2e;--input:#3c3c3c;--input-line:#3c3c3c;--ok:#89d185;--bad:#f48771;--bad-bg:#5a1d1d;--cmt:#6a9955;--lnum:#858585;--chip:#37373d;--link:#3794ff;--th:#2d2d2d}
+:root[data-theme=light]{color-scheme:light;--bg:#ffffff;--side:#f3f3f3;--act:#2c2c2c;--act-ink:#a6a6a6;--tbar:#dddddd;--tbar-ink:#333333;--tab:#ececec;--line:#d4d4d4;--ink:#333333;--strong:#000000;--sub:#616161;
+  --btn:#005fb8;--btn-h:#0258a8;--focus:#005fb8;--sel:#cce5ff;--hover:#e8e8e8;--input:#ffffff;--input-line:#c8c8c8;--ok:#2e7d32;--bad:#c72e0f;--bad-bg:#fdecea;--cmt:#008000;--lnum:#237893;--chip:#e4e6f1;--link:#006ab1;--th:#f3f3f3}
+:root{--status:#0066b8;--ui:-apple-system,BlinkMacSystemFont,"Segoe UI","Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;--mono:Consolas,"SF Mono",Menlo,"D2Coding",ui-monospace,monospace}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Pretendard",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 var(--ui)}
 button,input,textarea{font:inherit;color:inherit}
-button{cursor:pointer;border:0;background:none}
-.btn{background:var(--acc);color:#fff;font-weight:700;padding:14px 22px;border-radius:var(--r);min-height:48px}
-.btn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+button{cursor:pointer;border:0;background:none;padding:0}
+:focus-visible{outline:1px solid var(--focus);outline-offset:-1px}
+.mono{font-family:var(--mono)}
+svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* 틀: 제목 표시줄 · 본문 · 상태 표시줄 */
+.vs{height:100dvh;display:flex;flex-direction:column}
+.titlebar{display:flex;align-items:center;gap:4px;height:38px;padding:0 4px 0 10px;background:var(--tbar);color:var(--tbar-ink);flex:none}
+.logo{font:700 10px var(--mono);background:var(--status);color:#fff;border-radius:3px;padding:2px 4px}
+.ttl{flex:1;min-width:0;text-align:center;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 8px}
+.tb{display:grid;place-items:center;width:40px;height:38px;border-radius:4px}
+.tb:hover{background:rgba(128,128,128,.25)}
+:root[data-theme=dark] .i-moon,:root[data-theme=light] .i-sun{display:none}
+.pbar{height:2px;background:var(--line);flex:none}
+.pbar b{display:block;height:100%;width:0;background:var(--status);transition:width .2s}
+.statusbar{display:flex;gap:14px;align-items:center;height:24px;padding:0 10px;background:var(--status);color:#fff;font-size:12px;flex:none;white-space:nowrap;overflow:hidden}
+.statusbar .sp{flex:1}
+
+/* 공통 부품 */
+.btn{background:var(--btn);color:#fff;padding:0 16px;min-height:36px;border-radius:2px;font-size:13px}
+.btn:hover{background:var(--btn-h)}
+.btn.ghost{background:var(--chip);color:var(--ink)}
+.btn.ghost:hover{background:var(--hover)}
 .btn:disabled{opacity:.4;cursor:default}
-.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.ft{width:9px;height:9px;border-radius:2px;background:var(--sub);flex:none;display:inline-block}
+.ft[data-x=xlsx],.ft[data-x=csv]{background:#3fa34d}.ft[data-x=pdf]{background:#e5534b}.ft[data-x=png]{background:#a371f7}.ft[data-x=md]{background:#4d9de0}.ft[data-x=json]{background:#d4a72c}
+.gtabs{display:flex;background:var(--tab);overflow-x:auto;flex:none;scrollbar-width:none}
+.gtab{display:flex;align-items:center;gap:7px;padding:0 12px;height:35px;white-space:nowrap;color:var(--sub);border-right:1px solid var(--line);border-top:1px solid transparent;font-size:13px}
+.gtab.on{background:var(--bg);color:var(--strong);border-top-color:var(--status)}
+button.gtab:hover{color:var(--ink)}
+.scroll{flex:1;min-height:0;overflow:auto}
+.cmt{color:var(--cmt);font:12px var(--mono)}
 
-/* 홈 · 결과 */
-.page{max-width:640px;margin:0 auto;padding:48px 16px}
-.page h1{font-size:clamp(28px,6vw,40px);line-height:1.2;margin:8px 0 12px}
-.eyebrow{color:var(--sub);font-size:13px;letter-spacing:.08em}
-.rules{margin:16px 0 0;padding-left:20px;color:var(--sub);font-size:14px}
-.rules li{margin:6px 0}
-.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:24px 0}
-.facts div{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;text-align:center}
-.facts b{display:block;font-size:22px}
-.facts span{color:var(--sub);font-size:13px}
-.score{font-size:clamp(72px,20vw,120px);font-weight:800;line-height:1}
-.score small{font-size:.4em;color:var(--sub)}
-.bar{display:grid;grid-template-columns:1fr 120px 36px;gap:12px;align-items:center;padding:8px 0}
-.bar i{height:8px;border-radius:8px;background:var(--line);overflow:hidden;display:block}
-.bar i b{display:block;height:100%;background:var(--acc)}
-.review{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin:8px 0}
-.review .ok{color:var(--acc);font-weight:700}.review .no{color:var(--bad);font-weight:700}
-.review p{margin:4px 0;color:var(--sub);font-size:14px}
+/* 시작 · 결과 */
+.editor{flex:1;min-height:0;display:flex;flex-direction:column}
+.page{max-width:860px;margin:0 auto;padding:40px 24px 56px}
+.page h1{font-size:clamp(28px,5vw,38px);font-weight:400;color:var(--strong);margin:0;letter-spacing:-.01em}
+.page .lead{font-size:clamp(15px,2.4vw,19px);color:var(--sub);margin:4px 0 32px}
+.page h2{font-size:19px;font-weight:400;color:var(--strong);margin:0 0 12px}
+.start{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:52px;padding:0 18px;font-size:16px;font-weight:600}
+.hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:36px;padding:24px;text-align:center}
+.hero h1{margin:0;font-size:clamp(32px,7vw,56px);font-weight:300;color:var(--strong);letter-spacing:-.02em}
+.hero .start{width:min(100%,320px)}
+.score{font-size:clamp(64px,16vw,104px);font-weight:300;line-height:1;color:var(--strong)}
+.score small{font-size:.38em;color:var(--sub)}
+.bar{display:grid;grid-template-columns:1fr minmax(80px,160px) 34px;gap:12px;align-items:center;padding:7px 0;font-size:14px}
+.bar i{height:6px;background:var(--line);display:block}
+.bar i b{display:block;height:100%;background:var(--status)}
+.review{border-top:1px solid var(--line);padding:14px 0;font-size:14px}
+.review .ok{color:var(--ok);font-weight:700}.review .no{color:var(--bad);font-weight:700}
+.review .qt{color:var(--strong);margin:4px 0}
+.review p{margin:4px 0;color:var(--sub);font-size:13px}
 
-/* 시험 */
-.exam{height:100dvh;display:flex;flex-direction:column}
-.top{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--card)}
-.top .x{font-size:22px;width:44px;height:44px}
-.prog{flex:1;height:8px;background:var(--line);border-radius:8px;overflow:hidden}
-.prog b{display:block;height:100%;background:var(--ink);transition:width .2s}
-.top .cnt{font-size:13px;color:var(--sub);white-space:nowrap}
-.tabs{display:none;background:var(--card);border-bottom:1px solid var(--line)}
-.tabs button{flex:1;padding:12px 0;min-height:44px;color:var(--sub);border-bottom:2px solid transparent}
-.tabs button.on{color:var(--ink);font-weight:700;border-color:var(--ink)}
-.main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,460px);grid-template-rows:minmax(0,2fr) minmax(0,3fr)}
-.panel{min-height:0;overflow:auto;padding:16px}
+/* 시험: 활동 표시줄 · 탐색기 · 편집기 · AI 채팅 */
+.work{flex:1;min-height:0;display:flex}
+.activity{width:48px;background:var(--act);display:flex;flex-direction:column;flex:none}
+.ab{display:grid;place-items:center;height:48px;color:var(--act-ink);border-left:2px solid transparent}
+.ab svg{width:22px;height:22px}
+.ab:hover,.ab.on{color:#fff}.ab.on{border-left-color:#fff}
+.sidebar{width:232px;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;flex:none}
+.work.noside .sidebar{display:none}
+.sh{padding:0 20px;height:32px;line-height:32px;font-size:11px;letter-spacing:.04em;color:var(--sub)}
+.tree{overflow:auto;flex:1;padding-bottom:12px}
+.node{display:flex;align-items:center;gap:6px;width:100%;min-height:24px;padding:2px 12px 2px 8px;text-align:left;font-size:13px}
+.node:hover{background:var(--hover)}
+.node .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.node .n{font-size:11px;color:var(--sub);font-family:var(--mono)}
+.node.bundle{font-weight:700;color:var(--ink)}
+.node.bundle.cur{color:var(--strong)}
+.node.file{padding-left:28px}
+.node.file.on{background:var(--sel);color:var(--strong)}
+.tw{width:12px;text-align:center;color:var(--sub);font-size:10px}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.tabs{display:none}
+.main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1.15fr)}
+.panel{min-height:0;min-width:0;display:flex;flex-direction:column}
 #pq{grid-row:1/3;border-right:1px solid var(--line)}
 #pf{border-bottom:1px solid var(--line)}
-#pc{display:flex;flex-direction:column;padding:0;overflow:hidden}
-.foot{display:flex;gap:8px;justify-content:space-between;padding:10px 16px;border-top:1px solid var(--line);background:var(--card)}
+.foot{display:flex;gap:8px;justify-content:flex-end;padding:8px 12px;border-top:1px solid var(--line);background:var(--side);flex:none}
 
-.tag{display:inline-block;background:#ececE7;border-radius:8px;padding:4px 10px;font-size:13px;color:var(--sub)}
-.q{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin:12px 0}
-.q h3{margin:8px 0 12px;font-size:18px;line-height:1.4}
-.opt{display:flex;gap:12px;align-items:center;width:100%;text-align:left;border:1px solid var(--line);border-radius:12px;padding:12px;margin:8px 0;min-height:48px;background:var(--card)}
-.opt k{flex:none;width:28px;height:28px;border-radius:8px;border:1px solid var(--line);display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--sub)}
-.opt.on{border-color:var(--acc);background:var(--acc-bg)}
-.opt.on k{background:var(--acc);border-color:var(--acc);color:#fff}
-.q input{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;min-height:48px;background:var(--card)}
-.q input:focus,.send textarea:focus{outline:2px solid var(--acc);outline-offset:1px}
+.qn{min-width:38px;justify-content:center;padding:0 8px;font:13px var(--mono);position:relative}
+.qn.done::after{content:"";position:absolute;right:5px;top:6px;width:6px;height:6px;border-radius:50%;background:var(--ok)}
+.scn{padding:16px 20px 18px;background:var(--side);border-bottom:1px solid var(--line)}
+.scn h2{margin:4px 0 6px;font-size:15px;font-weight:600;color:var(--strong)}
+.scn p{margin:0;font-size:14px;line-height:1.65;white-space:pre-line}
+.grp{padding:8px 12px 2px 20px;font-size:11px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qnode{padding-left:20px}
+.qnode.on{background:var(--sel);color:var(--strong)}
+.dot{width:7px;height:7px;border-radius:50%;border:1px solid var(--sub);flex:none}
+.done .dot{background:var(--ok);border-color:var(--ok)}
+.q{padding:18px 20px 20px;border-bottom:1px solid var(--line)}
+.q h3{margin:6px 0 12px;font-size:15px;line-height:1.55;font-weight:600;color:var(--strong)}
+.opt{display:flex;gap:10px;align-items:center;width:100%;text-align:left;padding:8px 10px;min-height:38px;border:1px solid transparent;border-radius:3px;font-size:14px}
+.opt:hover{background:var(--hover)}
+.opt k{flex:none;width:22px;height:22px;border-radius:50%;border:1px solid var(--sub);display:grid;place-items:center;font:11px var(--mono);color:var(--sub)}
+.opt.on{background:var(--sel);border-color:var(--focus);color:var(--strong)}
+.opt.on k{background:var(--btn);border-color:var(--btn);color:#fff}
+.q input{width:100%;padding:0 10px;height:36px;background:var(--input);border:1px solid var(--input-line);border-radius:2px;font-size:14px}
+.q input:focus,.send textarea:focus{outline:1px solid var(--focus);outline-offset:-1px}
 
-.files{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
-.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:13px;min-height:36px}
-.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
-pre{margin:0;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:13px;overflow:auto;white-space:pre}
-pre.wrap{white-space:pre-wrap;word-break:break-word}
-.shotbox{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
+/* 파일 보기 */
+#fv{padding:0}
+.code{counter-reset:ln;font:12.5px/1.6 var(--mono);padding:8px 0 16px;min-width:100%;width:max-content}
+.code .l{counter-increment:ln;position:relative;padding:0 16px 0 58px;white-space:pre}
+.code .l::before{content:counter(ln);position:absolute;left:0;width:42px;text-align:right;color:var(--lnum);user-select:none}
+.code.wrap{width:auto}.code.wrap .l{white-space:pre-wrap;word-break:break-word}
+.sheet table{border-collapse:collapse;font:12.5px var(--mono);white-space:nowrap}
+.sheet th,.sheet td{border:1px solid var(--line);padding:4px 10px;text-align:left}
+.sheet th{background:var(--th);position:sticky;top:0;color:var(--strong)}
+.shotbox{overflow:auto;background:#fff;margin:12px;border:1px solid var(--line)}
 .shot{display:block;width:max(100%,640px)} /* 좁은 화면에서도 글자가 읽히도록 최소 폭을 두고 좌우로 민다 */
-.sheet{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--card)}
-.sheet table{border-collapse:collapse;font-size:13px;white-space:nowrap}
-.sheet th,.sheet td{border:1px solid var(--line);padding:6px 10px;text-align:left}
-.sheet th{background:#ececE7}
-.dl{display:inline-block;color:var(--acc);font-weight:700;font-size:14px;line-height:44px}
+.dl{display:inline-block;margin:0 12px;color:var(--link);font-size:13px;line-height:40px}
 
-.msgs{flex:1;min-height:0;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:8px}
-.msg{max-width:88%;padding:10px 12px;border-radius:14px;white-space:pre-wrap;word-break:break-word;font-size:15px}
-.msg.me{align-self:flex-end;background:var(--ink);color:#fff}
-.msg.ai{align-self:flex-start;background:var(--card);border:1px solid var(--line)}
-.msg .at{background:rgba(22,163,74,.22);border-radius:6px;padding:0 4px}
-.hint{color:var(--sub);font-size:13px;text-align:center;margin:auto}
-.att{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);background:var(--card);font-size:12px}
+/* AI 채팅 */
+.ph{display:flex;align-items:center;gap:8px;height:35px;padding:0 12px 0 20px;font-size:11px;letter-spacing:.04em;color:var(--sub);background:var(--side);border-bottom:1px solid var(--line);flex:none}
+.pill{margin-left:auto;font:11px var(--mono);background:var(--chip);color:var(--ink);border-radius:10px;padding:1px 8px;letter-spacing:0}
+#pc{background:var(--side)}
+.msgs{flex:1;min-height:0;overflow:auto;padding:4px 0;display:flex;flex-direction:column}
+.msg,.wait{padding:10px 20px;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.msg .who{display:block;font-size:12px;font-weight:700;color:var(--strong);margin-bottom:2px}
+.msg.me{background:var(--bg);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.msg .at{background:var(--chip);border-radius:3px;padding:0 4px;font-size:12.5px}
+.wait{color:var(--sub);font-size:13px}
+.hint{color:var(--sub);text-align:center;margin:auto;padding:16px;font-size:13px}
+.rule{margin:0;padding:6px 20px;font-size:11.5px;line-height:1.5;color:var(--sub);border-top:1px solid var(--line);flex:none}
+.att{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 12px 0;font-size:12px;flex:none}
 .att[hidden]{display:none}
-.att span{background:var(--acc-bg);border-radius:8px;padding:3px 8px}
+.att span{background:var(--chip);border-radius:3px;padding:2px 7px}
 .att em{font-style:normal;color:var(--sub);width:100%}
 .att.over em{color:var(--bad);font-weight:700}
-.att.over span{background:#fde8e8}
-.pop small{color:var(--sub)}
-.rule{margin:0;padding:8px 14px;font-size:12px;line-height:1.5;color:var(--sub);background:#ececE7;border-top:1px solid var(--line)}
-.send{position:relative;display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);background:var(--card)}
-.send textarea{flex:1;resize:none;height:48px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
-.pop{position:absolute;left:12px;right:12px;bottom:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);overflow:hidden}
-.pop button{display:block;width:100%;text-align:left;padding:12px;min-height:44px}
-.pop button:hover,.pop button:focus{background:var(--acc-bg)}
+.att.over span{background:var(--bad-bg)}
+.send{position:relative;display:flex;gap:8px;padding:10px 12px 12px;flex:none}
+.send textarea{flex:1;resize:none;height:56px;padding:8px 10px;background:var(--input);border:1px solid var(--input-line);border-radius:2px;font-size:14px;line-height:1.4}
+.send .btn{align-self:stretch}
+.pop{position:absolute;left:12px;right:12px;bottom:100%;background:var(--side);border:1px solid var(--focus);box-shadow:0 4px 16px rgba(0,0,0,.36);z-index:2}
+.pop button{display:flex;gap:8px;align-items:baseline;width:100%;text-align:left;padding:0 10px;min-height:34px;font-size:13px}
+.pop button:hover,.pop button:focus{background:var(--sel);color:var(--strong)}
+.pop small{color:var(--sub);margin-left:auto}
 
+@media (max-width:1100px){.sidebar{display:none}}
 @media (max-width:860px){
-  .tabs{display:flex}
+  .activity{display:none}
+  .titlebar{height:44px}.tb{height:44px;width:44px}
+  .tabs{display:flex;background:var(--tab);flex:none}
+  .tabs button{flex:1;height:44px;color:var(--sub);border-top:1px solid transparent;border-right:1px solid var(--line);font-size:14px}
+  .tabs button.on{background:var(--bg);color:var(--strong);border-top-color:var(--status)}
   .main{display:block}
   .panel{display:none;height:100%}
-  .panel.on{display:block}
-  #pc.on{display:flex}
+  .panel.on{display:flex}
   #pq{border:0}
+  .qn{min-width:44px}
+  .gtab{height:44px}
+  .foot{justify-content:space-between}.foot .btn{min-height:44px;flex:1}
+  .opt{min-height:46px}.q input{height:46px}
+  .q input,.send textarea{font-size:16px} /* iOS가 입력창을 확대하지 않도록 */
+  .pop button{min-height:44px}
+  .page{padding:28px 16px 40px}
+  .statusbar .wide{display:none}
 }
+@media (prefers-reduced-motion:reduce){.pbar b{transition:none}}
 </style>
 </head>
 <body>
@@ -165,13 +245,13 @@ console.assert(!isCorrect({ type: 'short', answers: ['3'] }, ''), '빈 답은 �
 console.assert(!isCorrect({ type: 'mc', answer: 1 }, undefined), '미응답은 오답');
 
 // ───────── 상태
-const fresh = () => ({ screen: 'home', b: 0, tab: 'q', answers: {}, chats: BUNDLES.map(() => []), drafts: BUNDLES.map(() => ''), file: BUNDLES.map(() => 0) });
+const fresh = () => ({ screen: 'home', q: 0, b: 0, tab: 'q', answers: {}, chats: BUNDLES.map(() => []), drafts: BUNDLES.map(() => ''), file: BUNDLES.map(() => 0) });
 let S = fresh();
 // 새로고침·탭 전환으로 답이 사라지지 않도록 세션에 저장해 둔다
-const SAVE_KEY = 'ai-exam-mock-v3';
+const SAVE_KEY = 'ai-exam-mock-v4';
 try {
   const saved = JSON.parse(sessionStorage.getItem(SAVE_KEY));
-  if (saved && saved.chats?.length === BUNDLES.length && saved.b < BUNDLES.length) S = saved;
+  if (saved && saved.chats?.length === BUNDLES.length && saved.q < TOTAL) S = saved;
 } catch (e) { /* 저장소를 못 쓰는 환경이면 새로 시작 */ }
 const save = () => {
   const inp = document.getElementById('inp');
@@ -183,72 +263,152 @@ document.addEventListener('visibilitychange', () => document.hidden && save());
 const app = document.getElementById('app');
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const answered = () => Object.values(S.answers).filter((v) => v !== '' && v != null).length;
+const ext = (name) => name.split('.').pop();
+
+// ───────── 테마 · 전체화면
+const ICON = {
+  sun: '<svg class="i-sun" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/></svg>',
+  moon: '<svg class="i-moon" viewBox="0 0 16 16"><path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8z"/></svg>',
+  full: '<svg viewBox="0 0 16 16"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
+  x: '<svg viewBox="0 0 16 16"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg>',
+  files: '<svg viewBox="0 0 16 16"><path d="M5.5 4.5V2.5h5l3 3v6h-2.5M2.5 4.5h5l3 3v6h-8z"/></svg>',
+  chat: '<svg viewBox="0 0 16 16"><path d="M2.5 3.5h11v7.5H7l-3 2.5V11H2.5z"/></svg>',
+  play: '<svg viewBox="0 0 16 16"><path d="M4.5 2.8l8 5.2-8 5.2z" fill="currentColor"/></svg>',
+};
+const canFull = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+function enterFull() { // 기기가 전체화면을 지원하지 않거나 거부해도 시험은 그대로 진행한다
+  const el = document.documentElement;
+  try { Promise.resolve((el.requestFullscreen || el.webkitRequestFullscreen)?.call(el)).catch(() => {}); } catch (e) { /* 미지원 */ }
+}
+function exitFull() {
+  if (!isFull()) return;
+  try { Promise.resolve((document.exitFullscreen || document.webkitExitFullscreen)?.call(document)).catch(() => {}); } catch (e) { /* 미지원 */ }
+}
+function toggleTheme() {
+  const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('theme', t); } catch (e) { /* 저장 못 해도 이번 화면에는 적용된다 */ }
+}
+function startExam() { S = fresh(); S.screen = 'exam'; enterFull(); render(); }
+function goHome() { S = fresh(); exitFull(); render(); }
+document.addEventListener('click', (e) => {
+  const act = e.target.closest('[data-act]')?.dataset.act;
+  if (act === 'theme') toggleTheme();
+  if (act === 'full') isFull() ? exitFull() : enterFull();
+  if (act === 'start') startExam();
+  if (act === 'home') goHome();
+});
+
+// 제목 표시줄 · 본문 · 상태 표시줄로 된 공통 틀
+function shell(title, body, status) {
+  return `<div class="vs">
+    <header class="titlebar"><span class="logo" aria-hidden="true">AI</span><span class="ttl">${esc(title)}</span>
+      ${canFull ? `<button class="tb" data-act="full" aria-label="전체화면 켜기/끄기" title="전체화면">${ICON.full}</button>` : ''}
+      <button class="tb" data-act="theme" aria-label="라이트 모드/다크 모드 전환" title="라이트/다크 전환">${ICON.sun}${ICON.moon}</button>
+      ${S.screen === 'exam' ? `<button class="tb" id="quit" aria-label="시험 나가기" title="나가기">${ICON.x}</button>` : ''}
+    </header>
+    <div class="pbar"><b id="pb"></b></div>
+    ${body}
+    <footer class="statusbar">${status}</footer>
+  </div>`;
+}
+const page = (tab, x, inner) => `<main class="editor"><div class="gtabs"><span class="gtab on"><i class="ft" data-x="${x}"></i>${tab}</span></div><div class="scroll"><div class="page">${inner}</div></div></main>`;
 
 function render() {
   app.innerHTML = { home, exam, result }[S.screen]();
   if (S.screen === 'exam') bindExam();
-  window.scrollTo(0, 0);
 }
 
-function home() {
-  return `<div class="page">
-    <div class="eyebrow mono">AI LITERACY MOCK TEST</div>
-    <h1>AI 역량시험<br>실전 모의 1회</h1>
-    <p>자료 파일을 AI 채팅에 <b>@멘션</b>해 물어보며 푸는 실무형 시험입니다.</p>
-    <ul class="rules">
-      <li>AI는 질문마다 기억이 초기화됩니다. 앞에서 얻은 결과는 다음 질문에 직접 적어 넣으세요.</li>
-      <li>질문과 첨부파일은 합쳐서 한 번에 2만 토큰까지입니다. 자료가 커서 한꺼번에 보낼 수 없으니 질문을 나누세요.</li>
-      <li>묶음마다 AI와 3~4번 주고받으면 풀 수 있습니다.</li>
-    </ul>
-    <div class="facts"><div><b>${TOTAL}</b><span>문제</span></div><div><b>${BUNDLES.length}</b><span>묶음</span></div><div><b>1+2</b><span>객관식+단답형</span></div></div>
-    <button class="btn" style="width:100%" onclick="S=fresh();S.screen='exam';render()">응시하기</button>
-  </div>`;
+function home() { // 제목과 응시하기 버튼만 둔다
+  return shell('AI 역량 모의시험', `<main class="editor"><div class="hero">
+    <h1>AI 역량 모의시험</h1>
+    <button class="btn start" data-act="start">${ICON.play}응시하기</button>
+  </div></main>`, `<span class="sp"></span><span>Claude Haiku</span>`);
 }
 
 function exam() {
-  const B = BUNDLES[S.b], last = S.b === BUNDLES.length - 1;
-  const qs = B.questions.map((q, i) => {
-    const id = `${S.b}-${i}`, a = S.answers[id];
-    const body = q.type === 'mc'
-      ? q.options.map((o, k) => `<button class="opt ${a === k ? 'on' : ''}" data-q="${id}" data-k="${k}" aria-pressed="${a === k}"><k>${'ABCD'[k]}</k><span>${esc(o)}</span></button>`).join('')
-      : `<input data-q="${id}" value="${esc(a ?? '')}" placeholder="답을 입력하세요" autocomplete="off" aria-label="단답형 답">`;
-    return `<div class="q"><span class="tag">문제 ${S.b * 3 + i + 1} · ${q.type === 'mc' ? '객관식' : '단답형'}</span><h3>${esc(q.text)}</h3>${body}</div>`;
-  }).join('');
-  return `<div class="exam">
-    <div class="top"><button class="x" aria-label="나가기" id="quit">✕</button><div class="prog"><b id="pb"></b></div><span class="cnt" id="cnt"></span></div>
-    <div class="tabs" role="tablist">${[['q', '문제'], ['f', '파일'], ['c', 'AI 채팅']].map(([k, t]) => `<button role="tab" data-tab="${k}">${t}</button>`).join('')}</div>
-    <div class="main">
-      <section class="panel" id="pq"><span class="tag">묶음 ${S.b + 1} · ${esc(B.title)}</span>${qs}</section>
-      <section class="panel" id="pf"><div class="files" id="files"></div><div id="fv"></div></section>
-      <section class="panel" id="pc">
-        <div class="msgs" id="msgs" aria-live="polite"></div>
-        <p class="rule">질문마다 새 대화입니다. AI는 이전 질문과 답을 기억하지 못하니 필요한 파일과 내용을 매번 함께 보내세요. 질문과 첨부는 합쳐서 2만 토큰까지입니다.</p>
-        <div class="att" id="att" hidden aria-live="polite"></div>
-        <form class="send" id="send"><div class="pop" id="pop" hidden></div>
-          <textarea id="inp" placeholder="@로 파일을 멘션해 물어보세요" aria-label="AI에게 질문"></textarea>
-          <button class="btn" id="go">전송</button></form>
-      </section>
+  const B = BUNDLES[S.b];
+  return shell(`${B.title} — AI 역량 모의시험`, `<div class="work">
+    <nav class="activity" aria-label="보기 전환">
+      <button class="ab on" id="abSide" aria-label="탐색기 열기/닫기" title="탐색기">${ICON.files}</button>
+      <button class="ab" id="abChat" aria-label="AI 채팅 입력창으로 이동" title="AI 채팅">${ICON.chat}</button>
+    </nav>
+    <aside class="sidebar" aria-label="탐색기"><div class="tree" id="tree"></div></aside>
+    <div class="col">
+      <div class="tabs" role="tablist">${[['q', '문제'], ['f', '파일'], ['c', 'AI 채팅']].map(([k, t]) => `<button role="tab" data-tab="${k}">${t}</button>`).join('')}</div>
+      <div class="main">
+        <section class="panel" id="pq">
+          <div class="gtabs qtabs" id="qtabs" aria-label="문제 번호"></div>
+          <div class="scroll" id="qbox"></div>
+        </section>
+        <section class="panel" id="pf"><div class="gtabs" id="files"></div><div class="scroll" id="fv"></div></section>
+        <section class="panel" id="pc">
+          <div class="ph">AI 채팅<span class="pill">Haiku · 원샷</span></div>
+          <div class="msgs" id="msgs" aria-live="polite"></div>
+          <p class="rule">질문마다 새 대화입니다. AI는 이전 질문과 답을 기억하지 못하니 필요한 파일과 내용을 매번 함께 보내세요. 질문과 첨부는 합쳐서 2만 토큰까지입니다.</p>
+          <div class="att" id="att" hidden aria-live="polite"></div>
+          <form class="send" id="send"><div class="pop" id="pop" hidden></div>
+            <textarea id="inp" placeholder="@로 파일을 멘션해 물어보세요" aria-label="AI에게 질문"></textarea>
+            <button class="btn" id="go">전송</button></form>
+        </section>
+      </div>
+      <div class="foot"><button class="btn ghost" id="prev">이전 문제</button><button class="btn" id="next">다음 문제</button></div>
     </div>
-    <div class="foot"><button class="btn ghost" id="prev" ${S.b ? '' : 'disabled'}>이전 묶음</button><button class="btn" id="next">${last ? '제출하기' : '다음 묶음'}</button></div>
-  </div>`;
+  </div>`, `<span id="stt"></span><span class="sp"></span><span class="wide">Claude Haiku</span><span class="wide">원샷 · 2만 토큰</span>`);
 }
 
 function bindExam() {
   const B = BUNDLES[S.b], $ = (id) => document.getElementById(id);
   const inp = $('inp'), pop = $('pop'), msgs = $('msgs');
+  const Q = (n) => BUNDLES[Math.floor(n / 3)].questions[n % 3];
+  const qid = (n) => `${Math.floor(n / 3)}-${n % 3}`;
+  const isDone = (n) => { const v = S.answers[qid(n)]; return v !== '' && v != null; };
+  const kind = (n) => (Q(n).type === 'mc' ? '객관식' : '단답형');
 
+  // 답한 문제 표시(번호 탭 · 탐색기)와 맨 위 진행 선
   const progress = () => {
     $('pb').style.width = (answered() / TOTAL * 100) + '%';
-    $('cnt').textContent = `묶음 ${S.b + 1}/${BUNDLES.length} · 답변 ${answered()}/${TOTAL}`;
+    document.querySelectorAll('[data-go]').forEach((el) => el.classList.toggle('done', isDone(+el.dataset.go)));
   };
   const setTab = (t) => {
     S.tab = t;
     document.querySelectorAll('.tabs button').forEach((b) => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
     ['pq', 'pf', 'pc'].forEach((id) => $(id).classList.toggle('on', id === 'p' + t));
   };
+  // 지금 문제: 맨 위에 상황(보기), 그 아래 문제 하나
+  const drawQ = () => {
+    const n = S.q, q = Q(n), a = S.answers[qid(n)];
+    const body = q.type === 'mc'
+      ? q.options.map((o, k) => `<button class="opt ${a === k ? 'on' : ''}" data-q="${qid(n)}" data-k="${k}" aria-pressed="${a === k}"><k>${'ABCD'[k]}</k><span>${esc(o)}</span></button>`).join('')
+      : `<input data-q="${qid(n)}" value="${esc(a ?? '')}" placeholder="답을 입력하세요" autocomplete="off" aria-label="단답형 답">`;
+    $('qbox').innerHTML = `<div class="scn"><span class="cmt">// 상황 · 문제 ${S.b * 3 + 1}~${S.b * 3 + 3} 공통</span><h2>${esc(B.title)}</h2>${B.scenario ? `<p>${esc(B.scenario)}</p>` : ''}</div>
+      <div class="q"><span class="cmt">// 문제 ${n + 1} · ${kind(n)}</span><h3>${esc(q.text)}</h3>${body}</div>`;
+    $('qbox').scrollTop = 0;
+    $('qtabs').innerHTML = Array.from({ length: TOTAL }, (_, i) => `<button class="gtab qn ${i === n ? 'on' : ''}" data-go="${i}" aria-label="문제 ${i + 1}" ${i === n ? 'aria-current="true"' : ''}>${i + 1}</button>`).join('');
+    $('qtabs').querySelector('.on').scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    document.querySelectorAll('#tree [data-go]').forEach((el) => el.classList.toggle('on', +el.dataset.go === n));
+    $('prev').disabled = n === 0;
+    $('next').textContent = n === TOTAL - 1 ? '제출하기' : '다음 문제';
+    progress();
+  };
+  // 문제 이동. 같은 상황 안에서는 파일·채팅 화면을 그대로 두고 문제만 바꾼다.
+  const go = (n) => {
+    if (n < 0 || n >= TOTAL) return;
+    const sameScene = Math.floor(n / 3) === S.b;
+    leave(); S.q = n; S.b = Math.floor(n / 3); S.tab = 'q';
+    if (sameScene) { setTab('q'); drawQ(); } else render();
+  };
+  // 탐색기: 문제 1~15(상황별로 묶어 표시)와 지금 상황의 첨부파일
+  const drawTree = () => {
+    $('tree').innerHTML = `<div class="sh">문제</div>` + BUNDLES.map((X, bi) => `<div class="grp">${esc(X.title)}</div>` +
+      X.questions.map((_, qi) => { const n = bi * 3 + qi; return `<button class="node qnode" data-go="${n}"><span class="dot"></span><span class="nm">문제 ${n + 1}</span><span class="n">${kind(n)}</span></button>`; }).join('')).join('') +
+      `<div class="sh">첨부파일</div>` + B.files.map((f, k) => `<button class="node file" data-f="${k}"><i class="ft" data-x="${ext(f.name)}"></i><span class="nm mono">${esc(f.name)}</span><span class="n">${fmt(f.tokens)}</span></button>`).join('');
+  };
   const showFile = (i) => {
     S.file[S.b] = i;
-    $('files').innerHTML = B.files.map((f, k) => `<button class="chip mono ${k === i ? 'on' : ''}" data-f="${k}">${esc(f.name)}</button>`).join('');
+    $('files').innerHTML = B.files.map((f, k) => `<button class="gtab chip mono ${k === i ? 'on' : ''}" data-f="${k}"><i class="ft" data-x="${ext(f.name)}"></i>${esc(f.name)}</button>`).join('');
+    document.querySelectorAll('#tree .file').forEach((n) => n.classList.toggle('on', +n.dataset.f === i));
     const f = B.files[i];
     const link = f.url ? `<a class="dl" href="${esc(f.url)}" target="_blank" rel="noopener"${f.kind === 'sheet' ? ' download' : ''}>${f.kind === 'sheet' ? '엑셀 파일 내려받기' : '원본 열기'}</a>` : '';
     if (f.kind === 'image' || f.kind === 'pdf') { // PDF는 모바일에서 바로 안 보이는 경우가 많아 미리보기 이미지로 보여준다
@@ -256,15 +416,16 @@ function bindExam() {
     } else if (f.kind === 'sheet') {
       const rows = f.body.split('\n').map((l) => l.split(','));
       $('fv').innerHTML = `<div class="sheet"><table>${rows.map((r, k) => `<tr>${r.map((c) => (k ? `<td>${esc(c)}</td>` : `<th>${esc(c)}</th>`)).join('')}</tr>`).join('')}</table></div>${link}`;
-    } else { // 표(CSV)만 가로 스크롤, 나머지 글자 파일은 줄바꿈
-      $('fv').innerHTML = `<pre class="mono${f.name.endsWith('.csv') ? '' : ' wrap'}">${esc(f.body)}</pre>`;
+    } else { // 줄 번호가 붙은 코드 보기. 표(CSV)만 가로 스크롤, 나머지 글자 파일은 줄바꿈
+      $('fv').innerHTML = `<div class="code${f.name.endsWith('.csv') ? '' : ' wrap'}">${f.body.split('\n').map((l) => `<div class="l">${esc(l) || ' '}</div>`).join('')}</div>`;
     }
+    $('fv').scrollTop = 0;
   };
-  const drawMsgs = () => {
+  const drawMsgs = (waiting) => {
     const list = S.chats[S.b];
-    msgs.innerHTML = list.length
-      ? list.map((m) => `<div class="msg ${m.who}">${esc(m.text).replace(/@([^\s@]+)/g, (all, n) => B.files.some((f) => f.name === n) ? `<span class="at mono">@${n}</span>` : all)}</div>`).join('')
-      : `<div class="hint">이 묶음의 파일을 @로 멘션해<br>AI에게 물어보세요.</div>`;
+    msgs.innerHTML = (list.length
+      ? list.map((m) => `<div class="msg ${m.who}"><span class="who">${m.who === 'me' ? '나' : 'Haiku'}</span>${esc(m.text).replace(/@([^\s@]+)/g, (all, n) => B.files.some((f) => f.name === n) ? `<span class="at mono">@${n}</span>` : all)}</div>`).join('')
+      : `<div class="hint">이 상황의 파일을 @로 멘션해<br>AI에게 물어보세요.</div>`) + (waiting ? `<div class="wait">답변을 만드는 중…</div>` : '');
     msgs.scrollTop = msgs.scrollHeight;
   };
   const leave = () => { S.drafts[S.b] = inp.value; };
@@ -278,9 +439,17 @@ function bindExam() {
   });
   $('pq').addEventListener('input', (e) => { if (e.target.dataset.q) { S.answers[e.target.dataset.q] = e.target.value; progress(); } });
 
-  // 탭 · 파일
+  // 문제 번호 · 탭 · 파일 · 탐색기
+  $('qtabs').addEventListener('click', (e) => { const t = e.target.closest('[data-go]'); if (t) go(+t.dataset.go); });
   document.querySelector('.tabs').addEventListener('click', (e) => e.target.dataset.tab && setTab(e.target.dataset.tab));
-  $('files').addEventListener('click', (e) => e.target.dataset.f && showFile(+e.target.dataset.f));
+  $('files').addEventListener('click', (e) => { const t = e.target.closest('[data-f]'); if (t) showFile(+t.dataset.f); });
+  $('tree').addEventListener('click', (e) => {
+    const f = e.target.closest('[data-f]'), g = e.target.closest('[data-go]');
+    if (f) return showFile(+f.dataset.f);
+    if (g) go(+g.dataset.go);
+  });
+  $('abSide').onclick = () => $('abSide').classList.toggle('on', !document.querySelector('.work').classList.toggle('noside'));
+  $('abChat').onclick = () => inp.focus();
 
   // 입력창에 멘션된 파일과 토큰 크기를 보여준다. 질문 글의 토큰은 서버에서만 정확히 셀 수 있어 합계에서 뺀다.
   const drawAtt = () => {
@@ -292,12 +461,12 @@ function bindExam() {
       `<em>첨부 합계 ${fmt(sum)} / ${fmt(LIMIT)} 토큰${sum > LIMIT ? ' · 한도 초과' : ''} (질문 글 제외)</em>`;
   };
 
-  // @멘션: 커서 앞이 "@글자"로 끝나면 이 묶음 파일만 후보로 띄운다
+  // @멘션: 커서 앞이 "@글자"로 끝나면 이 상황의 파일만 후보로 띄운다
   const mention = () => {
     const m = inp.value.slice(0, inp.selectionStart).match(/@([^\s@]*)$/);
     const hits = m ? B.files.filter((f) => f.name.toLowerCase().includes(m[1].toLowerCase())) : [];
     pop.hidden = !hits.length;
-    pop.innerHTML = hits.map((f) => `<button type="button" class="mono" data-n="${esc(f.name)}">@${esc(f.name)} <small>${fmt(f.tokens)}토큰</small></button>`).join('');
+    pop.innerHTML = hits.map((f) => `<button type="button" class="mono" data-n="${esc(f.name)}"><i class="ft" data-x="${ext(f.name)}"></i>@${esc(f.name)} <small>${fmt(f.tokens)}토큰</small></button>`).join('');
     drawAtt();
   };
   inp.addEventListener('input', mention);
@@ -318,25 +487,26 @@ function bindExam() {
     const text = inp.value.trim(); if (!text) return;
     const b = S.b, chat = S.chats[b];
     const files = B.files.filter((f) => text.includes('@' + f.name));
-    chat.push({ who: 'me', text, files: files.map((f) => f.name) }); inp.value = ''; pop.hidden = true; drawMsgs(); drawAtt();
+    chat.push({ who: 'me', text, files: files.map((f) => f.name) }); inp.value = ''; pop.hidden = true; drawMsgs(true); drawAtt();
     $('go').disabled = true;
     try { chat.push({ who: 'ai', text: await askAI(chat.at(-1), B.files) }); }
     catch (err) { chat.push({ who: 'ai', text: err.message || '응답을 받지 못했습니다. 다시 시도해 주세요.' }); console.error(err); }
     if (S.screen === 'exam' && S.b === b) { drawMsgs(); document.getElementById('go').disabled = false; }
   });
 
-  // 이동
-  $('prev').onclick = () => { leave(); S.b--; S.tab = 'q'; render(); };
+  // 이전 · 다음 · 제출
+  $('prev').onclick = () => go(S.q - 1);
   $('next').onclick = () => {
+    if (S.q < TOTAL - 1) return go(S.q + 1);
     leave();
-    if (S.b < BUNDLES.length - 1) { S.b++; S.tab = 'q'; return render(); }
     const left = TOTAL - answered();
     if (left && !confirm(`아직 ${left}문제를 풀지 않았습니다. 제출할까요?`)) return;
-    S.screen = 'result'; render();
+    S.screen = 'result'; exitFull(); render();
   };
-  $('quit').onclick = () => { if (confirm('시험을 그만둘까요? 입력한 답은 사라집니다.')) { S = fresh(); render(); } };
+  $('quit').onclick = () => { if (confirm('시험을 그만둘까요? 입력한 답은 사라집니다.')) goHome(); };
 
-  inp.value = S.drafts[S.b]; drawAtt(); setTab(S.tab); showFile(S.file[S.b]); drawMsgs(); progress();
+  $('stt').textContent = B.title;
+  inp.value = S.drafts[S.b]; drawTree(); drawAtt(); setTab(S.tab); showFile(S.file[S.b]); drawMsgs(); drawQ();
 }
 
 function result() {
@@ -347,19 +517,19 @@ function result() {
     return { B, bi, marks, n };
   });
   const show = (q, a) => a == null || a === '' ? '미응답' : q.type === 'mc' ? q.options[a] : a;
-  return `<div class="page">
-    <div class="eyebrow mono">RESULT</div>
+  return shell('결과 — AI 역량 모의시험', page('결과.md', 'md', `
+    <span class="cmt">// 채점 결과</span>
     <div class="score">${total}<small> / ${TOTAL}</small></div>
-    <p><b>정답률 ${Math.round(total / TOTAL * 100)}%</b></p>
+    <p class="lead">정답률 ${Math.round(total / TOTAL * 100)}%</p>
     ${rows.map((r) => `<div class="bar"><span><span class="mono" style="color:var(--sub)">0${r.bi + 1}</span> ${esc(r.B.title)}</span><i><b style="width:${r.n / 3 * 100}%"></b></i><span class="mono">${r.n}/3</span></div>`).join('')}
-    <h2 style="margin-top:32px">문제별 해설</h2>
+    <h2 style="margin-top:36px">문제별 해설</h2>
     ${rows.map((r) => r.B.questions.map((q, qi) => `<div class="review">
-      <span class="${r.marks[qi] ? 'ok' : 'no'}">${r.marks[qi] ? '정답' : '오답'}</span> · 문제 ${r.bi * 3 + qi + 1}
-      <div>${esc(q.text)}</div>
+      <span class="${r.marks[qi] ? 'ok' : 'no'}">${r.marks[qi] ? '✓ 정답' : '✗ 오답'}</span> <span class="cmt">문제 ${r.bi * 3 + qi + 1}</span>
+      <div class="qt">${esc(q.text)}</div>
       <p>내 답: ${esc(show(q, S.answers[`${r.bi}-${qi}`]))} / 정답: ${esc(q.type === 'mc' ? q.options[q.answer] : q.answers[0])}</p>
       <p>${esc(q.why)}</p></div>`).join('')).join('')}
-    <button class="btn" style="width:100%;margin-top:16px" onclick="S=fresh();render()">처음으로</button>
-  </div>`;
+    <button class="btn start" style="margin-top:20px;justify-content:center" data-act="home">처음으로</button>`),
+  `<span>점수 ${total}/${TOTAL}</span><span class="sp"></span><span class="wide">Claude Haiku</span>`);
 }
 
 render();

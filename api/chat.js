@@ -82,7 +82,8 @@ export default async function handler(req, res) {
     if (response.stop_reason === 'refusal') {
       return res.status(200).json({ reply: '이 요청에는 답할 수 없습니다. 질문을 바꿔서 다시 시도해 주세요.', used });
     }
-    const reply = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
+    // 채팅창은 일반 글자만 보여주므로, 지시를 어기고 섞여 나온 굵게 표시(**)는 지운다
+    const reply = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('').replace(/\*\*/g, '').trim();
     return res.status(200).json({ reply: reply || '답변이 비어 있습니다. 다시 시도해 주세요.', used });
   } catch (err) {
     if (err instanceof Anthropic.RateLimitError) {

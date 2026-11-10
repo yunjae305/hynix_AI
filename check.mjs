@@ -41,7 +41,7 @@ const BUNDLES = new Function(fs.readFileSync(new URL('./data.js', import.meta.ur
 assert.equal(BUNDLES.length, 5, '묶음 5개');
 for (const [i, B] of BUNDLES.entries()) {
   const at = `묶음 ${i + 1}`;
-  assert.ok(B.title && B.files.length, `${at}: 제목·파일`);
+  assert.ok(B.title && B.scenario && B.files.length, `${at}: 제목·상황 설명·파일`);
   assert.equal(new Set(B.files.map((f) => f.name)).size, B.files.length, `${at}: 파일명 중복`);
   for (const f of B.files) {
     assert.ok(/^[^\s@]+$/.test(f.name), `${at}: 파일명에 공백·@ 금지 (${f.name})`);
