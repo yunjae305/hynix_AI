@@ -21,10 +21,10 @@
 /* 편집기(IDE)풍 화면. 색·글꼴·간격은 모두 토큰으로 두고 테마만 바꾼다. 회색은 푸른 기가 도는 한 계열, 강조색은 파랑 하나. */
 :root[data-theme=dark]{color-scheme:dark;--bg:#0f1116;--side:#14171e;--bar:#0b0d11;--line:#232833;--ink:#c5cad6;--strong:#f2f4f8;--sub:#7f8798;
   --acc:#6b9bff;--btn:#3f6fd6;--btn-h:#4d7ce0;--sel:rgba(107,155,255,.14);--hover:rgba(255,255,255,.05);--input:#0b0d11;--input-line:#2a303c;
-  --ok:#4cc38a;--bad:#f2777a;--bad-bg:rgba(242,119,122,.14);--lnum:#4a5162;--chip:#1c212b;--zebra:rgba(255,255,255,.022);--shadow:0 12px 32px -8px rgba(2,6,16,.7);--glow:rgba(107,155,255,.18);--dot:rgba(255,255,255,.07)}
+  --ok:#4cc38a;--bad:#f2777a;--bad-bg:rgba(242,119,122,.14);--lnum:#4a5162;--chip:#1c212b;--zebra:rgba(255,255,255,.022)}
 :root[data-theme=light]{color-scheme:light;--bg:#ffffff;--side:#f6f7f9;--bar:#eef0f4;--line:#e2e5eb;--ink:#353b47;--strong:#11141a;--sub:#6a7283;
   --acc:#2f5fd0;--btn:#2f5fd0;--btn-h:#274fb3;--sel:rgba(47,95,208,.09);--hover:rgba(15,20,30,.05);--input:#ffffff;--input-line:#cfd4dd;
-  --ok:#1f8a5b;--bad:#c93a3a;--bad-bg:#fdecec;--lnum:#a3aab8;--chip:#eceff4;--zebra:rgba(15,20,30,.022);--shadow:0 12px 32px -10px rgba(28,45,90,.28);--glow:rgba(47,95,208,.13);--dot:rgba(15,20,30,.09)}
+  --ok:#1f8a5b;--bad:#c93a3a;--bad-bg:#fdecec;--lnum:#a3aab8;--chip:#eceff4;--zebra:rgba(15,20,30,.022)}
 :root{--ui:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;--mono:"JetBrains Mono",Consolas,"SF Mono",Menlo,"D2Coding",ui-monospace,monospace;
   --ease:cubic-bezier(.2,.7,.2,1);--r-s:6px;--r-m:10px;--r-l:14px}
 *{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
@@ -72,15 +72,10 @@ button.gtab:not(.on):hover{color:var(--ink);background:var(--hover)}
 
 /* 시작 */
 .editor{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
-.hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:40px;padding:24px 24px 9vh;text-align:center;position:relative;overflow:hidden;isolation:isolate}
-.hero::before{content:"";position:absolute;inset:0;z-index:-1;background-image:radial-gradient(var(--dot) 1px,transparent 1.4px);background-size:22px 22px;
-  -webkit-mask-image:radial-gradient(ellipse 62% 58% at 50% 46%,#000 0,transparent 78%);mask-image:radial-gradient(ellipse 62% 58% at 50% 46%,#000 0,transparent 78%)}
-.hero::after{content:"";position:absolute;z-index:-1;left:50%;top:44%;width:min(760px,92vw);aspect-ratio:1.5;transform:translate(-50%,-50%);background:radial-gradient(closest-side,var(--glow),transparent)}
+.hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:40px;padding:24px 24px 9vh;text-align:center}
 .hero h1{margin:0;font-size:clamp(34px,7.2vw,68px);font-weight:700;color:var(--strong);letter-spacing:-.045em;line-height:1.1;text-wrap:balance;animation:rise .6s var(--ease) both}
 .start{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:54px;padding:0 22px;font-size:16px;font-weight:600;border-radius:var(--r-l)}
-.hero .start{width:min(100%,280px);box-shadow:0 14px 30px -12px var(--btn),inset 0 1px 0 rgba(255,255,255,.18);animation:rise .6s .08s var(--ease) both}
-.hero .start:hover{transform:translateY(-2px);box-shadow:0 20px 36px -12px var(--btn),inset 0 1px 0 rgba(255,255,255,.22)}
-.hero .start:active{transform:translateY(0) scale(.98)}
+.hero .start{width:min(100%,280px);animation:rise .6s .08s var(--ease) both}
 
 /* 결과 */
 .page{max-width:820px;margin:0 auto;padding:44px 24px 64px}
@@ -151,7 +146,7 @@ button.gtab:not(.on):hover{color:var(--ink);background:var(--hover)}
 .qn{flex:none;min-width:30px;height:30px;padding:0 6px;justify-content:center;border:0;border-radius:8px;font:500 12px var(--mono);color:var(--sub);box-shadow:inset 0 0 0 1px var(--line);position:relative}
 .qn:not(.on):hover{color:var(--strong);box-shadow:inset 0 0 0 1px var(--sub);background:transparent}
 .qn.done{color:var(--ok);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ok) 55%,transparent);background:color-mix(in srgb,var(--ok) 9%,transparent)}
-.qn.on,.qn.on.done{height:30px;margin:0;background:var(--btn);color:#fff;box-shadow:0 4px 12px -4px var(--btn)}
+.qn.on,.qn.on.done{height:30px;margin:0;background:var(--btn);color:#fff;box-shadow:none}
 .qn.on.done::after{content:"";position:absolute;right:-2px;top:-2px;width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 2px var(--side)}
 #qbox{padding:20px}
 #qbox>*{max-width:760px;animation:rise .28s var(--ease) both}
@@ -168,7 +163,7 @@ button.gtab:not(.on):hover{color:var(--ink);background:var(--hover)}
 .opt.on k{background:var(--btn);color:#fff}
 .q input{width:100%;padding:0 14px;height:48px;background:var(--input);border:0;box-shadow:inset 0 0 0 1px var(--input-line);border-radius:var(--r-m);font-size:15px}
 .q input:hover,.send textarea:hover{box-shadow:inset 0 0 0 1px var(--sub)}
-.q input:focus,.send textarea:focus{outline:0;box-shadow:inset 0 0 0 1.5px var(--acc),0 0 0 4px var(--sel)}
+.q input:focus,.send textarea:focus{outline:0;box-shadow:inset 0 0 0 1.5px var(--acc)}
 ::placeholder{color:var(--lnum)}
 
 /* 파일 보기 */
@@ -183,7 +178,7 @@ button.gtab:not(.on):hover{color:var(--ink);background:var(--hover)}
 .sheet th{background:var(--side);position:sticky;top:0;color:var(--strong);font-weight:600;font-size:12px;z-index:1}
 .sheet tr:nth-child(odd) td{background:var(--zebra)}
 .sheet tr:hover td{background:var(--hover)}
-.shotbox{overflow:auto;background:#fff;margin:14px;border-radius:var(--r-m);box-shadow:0 0 0 1px var(--line),var(--shadow)}
+.shotbox{overflow:auto;background:#fff;margin:14px;border-radius:var(--r-m);border:1px solid var(--line)}
 .shot{display:block;width:max(100%,640px)} /* 좁은 화면에서도 글자가 읽히도록 최소 폭을 두고 좌우로 민다 */
 .dl{display:inline-block;margin:0 14px;color:var(--acc);font-size:13px;font-weight:500;line-height:40px;text-decoration:none}
 .dl:hover{text-decoration:underline}
@@ -214,7 +209,7 @@ button.gtab:not(.on):hover{color:var(--ink);background:var(--hover)}
 .send{display:flex;gap:8px;padding:10px 14px 14px;flex:none}
 .send textarea{flex:1;resize:none;height:58px;padding:10px 12px;background:var(--input);border:0;box-shadow:inset 0 0 0 1px var(--input-line);border-radius:var(--r-m);font-size:14px;line-height:1.45}
 .send .btn{align-self:stretch;border-radius:var(--r-m);min-width:64px}
-.pop{position:absolute;left:14px;right:14px;bottom:calc(100% + 6px);padding:5px;background:var(--side);border:1px solid var(--line);border-radius:var(--r-m);box-shadow:var(--shadow);z-index:4}
+.pop{position:absolute;left:14px;right:14px;bottom:calc(100% + 6px);padding:5px;background:var(--side);border:1px solid var(--input-line);border-radius:var(--r-m);z-index:4}
 .pop button{display:flex;gap:9px;align-items:center;width:100%;text-align:left;padding:0 10px;min-height:36px;border-radius:var(--r-s);font-size:12.5px}
 .pop button:hover,.pop button:focus-visible{background:var(--sel);color:var(--strong)}
 .pop small{color:var(--sub);margin-left:auto;font-size:11px}
