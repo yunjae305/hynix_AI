@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<title>AI 역량시험 모의고사</title>
+<style>
+:root{--bg:#f6f6f3;--card:#fff;--ink:#16181d;--sub:#6b7280;--line:#e3e3de;--acc:#16a34a;--acc-bg:#e9f6ee;--bad:#dc2626;--r:14px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Pretendard",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+.btn{background:var(--acc);color:#fff;font-weight:700;padding:14px 22px;border-radius:var(--r);min-height:48px}
+.btn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.btn:disabled{opacity:.4;cursor:default}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+/* 홈 · 결과 */
+.page{max-width:640px;margin:0 auto;padding:48px 16px}
+.page h1{font-size:clamp(28px,6vw,40px);line-height:1.2;margin:8px 0 12px}
+.eyebrow{color:var(--sub);font-size:13px;letter-spacing:.08em}
+.rules{margin:16px 0 0;padding-left:20px;color:var(--sub);font-size:14px}
+.rules li{margin:6px 0}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:24px 0}
+.facts div{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;text-align:center}
+.facts b{display:block;font-size:22px}
+.facts span{color:var(--sub);font-size:13px}
+.score{font-size:clamp(72px,20vw,120px);font-weight:800;line-height:1}
+.score small{font-size:.4em;color:var(--sub)}
+.bar{display:grid;grid-template-columns:1fr 120px 36px;gap:12px;align-items:center;padding:8px 0}
+.bar i{height:8px;border-radius:8px;background:var(--line);overflow:hidden;display:block}
+.bar i b{display:block;height:100%;background:var(--acc)}
+.review{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin:8px 0}
+.review .ok{color:var(--acc);font-weight:700}.review .no{color:var(--bad);font-weight:700}
+.review p{margin:4px 0;color:var(--sub);font-size:14px}
+
+/* 시험 */
+.exam{height:100dvh;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--card)}
+.top .x{font-size:22px;width:44px;height:44px}
+.prog{flex:1;height:8px;background:var(--line);border-radius:8px;overflow:hidden}
+.prog b{display:block;height:100%;background:var(--ink);transition:width .2s}
+.top .cnt{font-size:13px;color:var(--sub);white-space:nowrap}
+.tabs{display:none;background:var(--card);border-bottom:1px solid var(--line)}
+.tabs button{flex:1;padding:12px 0;min-height:44px;color:var(--sub);border-bottom:2px solid transparent}
+.tabs button.on{color:var(--ink);font-weight:700;border-color:var(--ink)}
+.main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,460px);grid-template-rows:minmax(0,2fr) minmax(0,3fr)}
+.panel{min-height:0;overflow:auto;padding:16px}
+#pq{grid-row:1/3;border-right:1px solid var(--line)}
+#pf{border-bottom:1px solid var(--line)}
+#pc{display:flex;flex-direction:column;padding:0;overflow:hidden}
+.foot{display:flex;gap:8px;justify-content:space-between;padding:10px 16px;border-top:1px solid var(--line);background:var(--card)}
+
+.tag{display:inline-block;background:#ececE7;border-radius:8px;padding:4px 10px;font-size:13px;color:var(--sub)}
+.q{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin:12px 0}
+.q h3{margin:8px 0 12px;font-size:18px;line-height:1.4}
+.opt{display:flex;gap:12px;align-items:center;width:100%;text-align:left;border:1px solid var(--line);border-radius:12px;padding:12px;margin:8px 0;min-height:48px;background:var(--card)}
+.opt k{flex:none;width:28px;height:28px;border-radius:8px;border:1px solid var(--line);display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--sub)}
+.opt.on{border-color:var(--acc);background:var(--acc-bg)}
+.opt.on k{background:var(--acc);border-color:var(--acc);color:#fff}
+.q input{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;min-height:48px;background:var(--card)}
+.q input:focus,.send textarea:focus{outline:2px solid var(--acc);outline-offset:1px}
+
+.files{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:13px;min-height:36px}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+pre{margin:0;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:13px;overflow:auto;white-space:pre}
+pre.wrap{white-space:pre-wrap;word-break:break-word}
+.shotbox{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
+.shot{display:block;width:max(100%,640px)} /* 좁은 화면에서도 글자가 읽히도록 최소 폭을 두고 좌우로 민다 */
+.sheet{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.sheet table{border-collapse:collapse;font-size:13px;white-space:nowrap}
+.sheet th,.sheet td{border:1px solid var(--line);padding:6px 10px;text-align:left}
+.sheet th{background:#ececE7}
+.dl{display:inline-block;color:var(--acc);font-weight:700;font-size:14px;line-height:44px}
+
+.msgs{flex:1;min-height:0;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:88%;padding:10px 12px;border-radius:14px;white-space:pre-wrap;word-break:break-word;font-size:15px}
+.msg.me{align-self:flex-end;background:var(--ink);color:#fff}
+.msg.ai{align-self:flex-start;background:var(--card);border:1px solid var(--line)}
+.msg .at{background:rgba(22,163,74,.22);border-radius:6px;padding:0 4px}
+.hint{color:var(--sub);font-size:13px;text-align:center;margin:auto}
+.att{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);background:var(--card);font-size:12px}
+.att[hidden]{display:none}
+.att span{background:var(--acc-bg);border-radius:8px;padding:3px 8px}
+.att em{font-style:normal;color:var(--sub);width:100%}
+.att.over em{color:var(--bad);font-weight:700}
+.att.over span{background:#fde8e8}
+.pop small{color:var(--sub)}
+.rule{margin:0;padding:8px 14px;font-size:12px;line-height:1.5;color:var(--sub);background:#ececE7;border-top:1px solid var(--line)}
+.send{position:relative;display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);background:var(--card)}
+.send textarea{flex:1;resize:none;height:48px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+.pop{position:absolute;left:12px;right:12px;bottom:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);overflow:hidden}
+.pop button{display:block;width:100%;text-align:left;padding:12px;min-height:44px}
+.pop button:hover,.pop button:focus{background:var(--acc-bg)}
+
+@media (max-width:860px){
+  .tabs{display:flex}
+  .main{display:block}
+  .panel{display:none;height:100%}
+  .panel.on{display:block}
+  #pc.on{display:flex}
+  #pq{border:0}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="data.js"></script>
+<script>
+const TOTAL = BUNDLES.length * 3;
+const LIMIT = 20000; // 질문 한 번에 보낼 수 있는 토큰(서버 api/chat.js의 MAX_INPUT_TOKENS와 같은 값)
+const fmt = (n) => n.toLocaleString('ko-KR');
+
+// ───────── AI 연결 지점. 키는 서버(api/chat.js)에만 있고, 여기서는 대화만 보낸다.
+// 글자 파일과 엑셀(표 내용)은 텍스트로, PDF·이미지는 원본 그대로 AI에 전달한다.
+// ponytail: 이미지는 PNG만 가정. JPG 등을 쓰게 되면 확장자로 media_type을 고를 것.
+const MEDIA = { pdf: ['document', 'application/pdf'], image: ['image', 'image/png'] };
+const b64Cache = {};
+const toBase64 = (url) => b64Cache[url] ??= fetch(url)
+  .then((r) => { if (!r.ok) throw new Error('첨부파일을 불러오지 못했습니다.'); return r.blob(); })
+  .then((blob) => new Promise((ok, no) => {
+    const fr = new FileReader();
+    fr.onload = () => ok(fr.result.split(',')[1]);
+    fr.onerror = () => no(new Error('첨부파일을 읽지 못했습니다.'));
+    fr.readAsDataURL(blob);
+  }))
+  .catch((e) => { delete b64Cache[url]; throw e; });
+
+// 질문 { text, files:[파일명] } 을 API 메시지로 바꾼다
+async function toApi(m, files) {
+    const blocks = [];
+  for (const f of (m.files || []).map((n) => files.find((x) => x.name === n)).filter(Boolean)) {
+    if (MEDIA[f.kind]) {
+      const [type, media_type] = MEDIA[f.kind];
+      blocks.push({ type: 'text', text: `[첨부파일: ${f.name}]` }, { type, source: { type: 'base64', media_type, data: await toBase64(f.url) } });
+    } else blocks.push({ type: 'text', text: `<file name="${f.name}">\n${f.body}\n</file>` });
+  }
+  return { role: 'user', content: [...blocks, { type: 'text', text: m.text }] };
+}
+// 원샷: 이번 질문 하나만 보낸다. 이전 질문·답은 화면에만 남고 AI에는 전달되지 않는다.
+async function askAI(question, files) {
+  if (location.protocol === 'file:') { // 파일을 직접 열었을 때는 서버가 없으므로 데모 응답
+    return '[데모 응답] 파일을 직접 열어 AI 서버가 없습니다.\n전달될 파일: ' + (question.files.join(', ') || '없음');
+  }
+  const r = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ messages: [await toApi(question, files)] }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `AI 서버 오류 (${r.status})`);
+  return data.reply;
+}
+
+// ───────── 채점
+const norm = (s) => String(s ?? '').toLowerCase().replace(/\s+/g, '');
+function isCorrect(q, a) {
+  if (q.type === 'mc') return a === q.answer;
+  return a != null && norm(a) !== '' && q.answers.some((x) => norm(x) === norm(a));
+}
+console.assert(isCorrect({ type: 'short', answers: ['박준'] }, '  박 준 '), '공백 무시');
+console.assert(isCorrect({ type: 'short', answers: ['GPT'] }, 'gpt'), '대소문자 무시');
+console.assert(!isCorrect({ type: 'short', answers: ['3'] }, ''), '빈 답은 오답');
+console.assert(!isCorrect({ type: 'mc', answer: 1 }, undefined), '미응답은 오답');
+
+// ───────── 상태
+const fresh = () => ({ screen: 'home', b: 0, tab: 'q', answers: {}, chats: BUNDLES.map(() => []), drafts: BUNDLES.map(() => ''), file: BUNDLES.map(() => 0) });
+let S = fresh();
+// 새로고침·탭 전환으로 답이 사라지지 않도록 세션에 저장해 둔다
+const SAVE_KEY = 'ai-exam-mock-v3';
+try {
+  const saved = JSON.parse(sessionStorage.getItem(SAVE_KEY));
+  if (saved && saved.chats?.length === BUNDLES.length && saved.b < BUNDLES.length) S = saved;
+} catch (e) { /* 저장소를 못 쓰는 환경이면 새로 시작 */ }
+const save = () => {
+  const inp = document.getElementById('inp');
+  if (inp) S.drafts[S.b] = inp.value;
+  try { sessionStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* 저장 실패는 시험 진행을 막지 않는다 */ }
+};
+addEventListener('pagehide', save);
+document.addEventListener('visibilitychange', () => document.hidden && save());
+const app = document.getElementById('app');
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const answered = () => Object.values(S.answers).filter((v) => v !== '' && v != null).length;
+
+function render() {
+  app.innerHTML = { home, exam, result }[S.screen]();
+  if (S.screen === 'exam') bindExam();
+  window.scrollTo(0, 0);
+}
+
+function home() {
+  return `<div class="page">
+    <div class="eyebrow mono">AI LITERACY MOCK TEST</div>
+    <h1>AI 역량시험<br>실전 모의 1회</h1>
+    <p>자료 파일을 AI 채팅에 <b>@멘션</b>해 물어보며 푸는 실무형 시험입니다.</p>
+    <ul class="rules">
+      <li>AI는 질문마다 기억이 초기화됩니다. 앞에서 얻은 결과는 다음 질문에 직접 적어 넣으세요.</li>
+      <li>질문과 첨부파일은 합쳐서 한 번에 2만 토큰까지입니다. 자료가 커서 한꺼번에 보낼 수 없으니 질문을 나누세요.</li>
+      <li>묶음마다 AI와 3~4번 주고받으면 풀 수 있습니다.</li>
+    </ul>
+    <div class="facts"><div><b>${TOTAL}</b><span>문제</span></div><div><b>${BUNDLES.length}</b><span>묶음</span></div><div><b>1+2</b><span>객관식+단답형</span></div></div>
+    <button class="btn" style="width:100%" onclick="S=fresh();S.screen='exam';render()">응시하기</button>
+  </div>`;
+}
+
+function exam() {
+  const B = BUNDLES[S.b], last = S.b === BUNDLES.length - 1;
+  const qs = B.questions.map((q, i) => {
+    const id = `${S.b}-${i}`, a = S.answers[id];
+    const body = q.type === 'mc'
+      ? q.options.map((o, k) => `<button class="opt ${a === k ? 'on' : ''}" data-q="${id}" data-k="${k}" aria-pressed="${a === k}"><k>${'ABCD'[k]}</k><span>${esc(o)}</span></button>`).join('')
+      : `<input data-q="${id}" value="${esc(a ?? '')}" placeholder="답을 입력하세요" autocomplete="off" aria-label="단답형 답">`;
+    return `<div class="q"><span class="tag">문제 ${S.b * 3 + i + 1} · ${q.type === 'mc' ? '객관식' : '단답형'}</span><h3>${esc(q.text)}</h3>${body}</div>`;
+  }).join('');
+  return `<div class="exam">
+    <div class="top"><button class="x" aria-label="나가기" id="quit">✕</button><div class="prog"><b id="pb"></b></div><span class="cnt" id="cnt"></span></div>
+    <div class="tabs" role="tablist">${[['q', '문제'], ['f', '파일'], ['c', 'AI 채팅']].map(([k, t]) => `<button role="tab" data-tab="${k}">${t}</button>`).join('')}</div>
+    <div class="main">
+      <section class="panel" id="pq"><span class="tag">묶음 ${S.b + 1} · ${esc(B.title)}</span>${qs}</section>
+      <section class="panel" id="pf"><div class="files" id="files"></div><div id="fv"></div></section>
+      <section class="panel" id="pc">
+        <div class="msgs" id="msgs" aria-live="polite"></div>
+        <p class="rule">질문마다 새 대화입니다. AI는 이전 질문과 답을 기억하지 못하니 필요한 파일과 내용을 매번 함께 보내세요. 질문과 첨부는 합쳐서 2만 토큰까지입니다.</p>
+        <div class="att" id="att" hidden aria-live="polite"></div>
+        <form class="send" id="send"><div class="pop" id="pop" hidden></div>
+          <textarea id="inp" placeholder="@로 파일을 멘션해 물어보세요" aria-label="AI에게 질문"></textarea>
+          <button class="btn" id="go">전송</button></form>
+      </section>
+    </div>
+    <div class="foot"><button class="btn ghost" id="prev" ${S.b ? '' : 'disabled'}>이전 묶음</button><button class="btn" id="next">${last ? '제출하기' : '다음 묶음'}</button></div>
+  </div>`;
+}
+
+function bindExam() {
+  const B = BUNDLES[S.b], $ = (id) => document.getElementById(id);
+  const inp = $('inp'), pop = $('pop'), msgs = $('msgs');
+
+  const progress = () => {
+    $('pb').style.width = (answered() / TOTAL * 100) + '%';
+    $('cnt').textContent = `묶음 ${S.b + 1}/${BUNDLES.length} · 답변 ${answered()}/${TOTAL}`;
+  };
+  const setTab = (t) => {
+    S.tab = t;
+    document.querySelectorAll('.tabs button').forEach((b) => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
+    ['pq', 'pf', 'pc'].forEach((id) => $(id).classList.toggle('on', id === 'p' + t));
+  };
+  const showFile = (i) => {
+    S.file[S.b] = i;
+    $('files').innerHTML = B.files.map((f, k) => `<button class="chip mono ${k === i ? 'on' : ''}" data-f="${k}">${esc(f.name)}</button>`).join('');
+    const f = B.files[i];
+    const link = f.url ? `<a class="dl" href="${esc(f.url)}" target="_blank" rel="noopener"${f.kind === 'sheet' ? ' download' : ''}>${f.kind === 'sheet' ? '엑셀 파일 내려받기' : '원본 열기'}</a>` : '';
+    if (f.kind === 'image' || f.kind === 'pdf') { // PDF는 모바일에서 바로 안 보이는 경우가 많아 미리보기 이미지로 보여준다
+      $('fv').innerHTML = `<div class="shotbox" tabindex="0"><img class="shot" src="${esc(f.preview || f.url)}" alt="${esc(f.name)} 미리보기"></div>${link}`;
+    } else if (f.kind === 'sheet') {
+      const rows = f.body.split('\n').map((l) => l.split(','));
+      $('fv').innerHTML = `<div class="sheet"><table>${rows.map((r, k) => `<tr>${r.map((c) => (k ? `<td>${esc(c)}</td>` : `<th>${esc(c)}</th>`)).join('')}</tr>`).join('')}</table></div>${link}`;
+    } else { // 표(CSV)만 가로 스크롤, 나머지 글자 파일은 줄바꿈
+      $('fv').innerHTML = `<pre class="mono${f.name.endsWith('.csv') ? '' : ' wrap'}">${esc(f.body)}</pre>`;
+    }
+  };
+  const drawMsgs = () => {
+    const list = S.chats[S.b];
+    msgs.innerHTML = list.length
+      ? list.map((m) => `<div class="msg ${m.who}">${esc(m.text).replace(/@([^\s@]+)/g, (all, n) => B.files.some((f) => f.name === n) ? `<span class="at mono">@${n}</span>` : all)}</div>`).join('')
+      : `<div class="hint">이 묶음의 파일을 @로 멘션해<br>AI에게 물어보세요.</div>`;
+    msgs.scrollTop = msgs.scrollHeight;
+  };
+  const leave = () => { S.drafts[S.b] = inp.value; };
+
+  // 문제 답
+  $('pq').addEventListener('click', (e) => {
+    const o = e.target.closest('.opt'); if (!o) return;
+    S.answers[o.dataset.q] = +o.dataset.k;
+    document.querySelectorAll(`.opt[data-q="${o.dataset.q}"]`).forEach((x) => { const on = x === o; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
+    progress();
+  });
+  $('pq').addEventListener('input', (e) => { if (e.target.dataset.q) { S.answers[e.target.dataset.q] = e.target.value; progress(); } });
+
+  // 탭 · 파일
+  document.querySelector('.tabs').addEventListener('click', (e) => e.target.dataset.tab && setTab(e.target.dataset.tab));
+  $('files').addEventListener('click', (e) => e.target.dataset.f && showFile(+e.target.dataset.f));
+
+  // 입력창에 멘션된 파일과 토큰 크기를 보여준다. 질문 글의 토큰은 서버에서만 정확히 셀 수 있어 합계에서 뺀다.
+  const drawAtt = () => {
+    const files = B.files.filter((f) => inp.value.includes('@' + f.name));
+    const sum = files.reduce((s, f) => s + f.tokens, 0);
+    $('att').hidden = !files.length;
+    $('att').classList.toggle('over', sum > LIMIT);
+    $('att').innerHTML = files.map((f) => `<span class="mono">${esc(f.name)} <b>${fmt(f.tokens)}</b></span>`).join('') +
+      `<em>첨부 합계 ${fmt(sum)} / ${fmt(LIMIT)} 토큰${sum > LIMIT ? ' · 한도 초과' : ''} (질문 글 제외)</em>`;
+  };
+
+  // @멘션: 커서 앞이 "@글자"로 끝나면 이 묶음 파일만 후보로 띄운다
+  const mention = () => {
+    const m = inp.value.slice(0, inp.selectionStart).match(/@([^\s@]*)$/);
+    const hits = m ? B.files.filter((f) => f.name.toLowerCase().includes(m[1].toLowerCase())) : [];
+    pop.hidden = !hits.length;
+    pop.innerHTML = hits.map((f) => `<button type="button" class="mono" data-n="${esc(f.name)}">@${esc(f.name)} <small>${fmt(f.tokens)}토큰</small></button>`).join('');
+    drawAtt();
+  };
+  inp.addEventListener('input', mention);
+  pop.addEventListener('click', (e) => {
+    const n = e.target.closest('button')?.dataset.n; if (!n) return;
+    const at = inp.selectionStart, head = inp.value.slice(0, at).replace(/@[^\s@]*$/, '@' + n + ' ');
+    inp.value = head + inp.value.slice(at);
+    inp.focus(); inp.setSelectionRange(head.length, head.length); pop.hidden = true; drawAtt();
+  });
+  inp.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') pop.hidden = true;
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').requestSubmit(); }
+  });
+
+  // 전송
+  $('send').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = inp.value.trim(); if (!text) return;
+    const b = S.b, chat = S.chats[b];
+    const files = B.files.filter((f) => text.includes('@' + f.name));
+    chat.push({ who: 'me', text, files: files.map((f) => f.name) }); inp.value = ''; pop.hidden = true; drawMsgs(); drawAtt();
+    $('go').disabled = true;
+    try { chat.push({ who: 'ai', text: await askAI(chat.at(-1), B.files) }); }
+    catch (err) { chat.push({ who: 'ai', text: err.message || '응답을 받지 못했습니다. 다시 시도해 주세요.' }); console.error(err); }
+    if (S.screen === 'exam' && S.b === b) { drawMsgs(); document.getElementById('go').disabled = false; }
+  });
+
+  // 이동
+  $('prev').onclick = () => { leave(); S.b--; S.tab = 'q'; render(); };
+  $('next').onclick = () => {
+    leave();
+    if (S.b < BUNDLES.length - 1) { S.b++; S.tab = 'q'; return render(); }
+    const left = TOTAL - answered();
+    if (left && !confirm(`아직 ${left}문제를 풀지 않았습니다. 제출할까요?`)) return;
+    S.screen = 'result'; render();
+  };
+  $('quit').onclick = () => { if (confirm('시험을 그만둘까요? 입력한 답은 사라집니다.')) { S = fresh(); render(); } };
+
+  inp.value = S.drafts[S.b]; drawAtt(); setTab(S.tab); showFile(S.file[S.b]); drawMsgs(); progress();
+}
+
+function result() {
+  let total = 0;
+  const rows = BUNDLES.map((B, bi) => {
+    const marks = B.questions.map((q, qi) => isCorrect(q, S.answers[`${bi}-${qi}`]));
+    const n = marks.filter(Boolean).length; total += n;
+    return { B, bi, marks, n };
+  });
+  const show = (q, a) => a == null || a === '' ? '미응답' : q.type === 'mc' ? q.options[a] : a;
+  return `<div class="page">
+    <div class="eyebrow mono">RESULT</div>
+    <div class="score">${total}<small> / ${TOTAL}</small></div>
+    <p><b>정답률 ${Math.round(total / TOTAL * 100)}%</b></p>
+    ${rows.map((r) => `<div class="bar"><span><span class="mono" style="color:var(--sub)">0${r.bi + 1}</span> ${esc(r.B.title)}</span><i><b style="width:${r.n / 3 * 100}%"></b></i><span class="mono">${r.n}/3</span></div>`).join('')}
+    <h2 style="margin-top:32px">문제별 해설</h2>
+    ${rows.map((r) => r.B.questions.map((q, qi) => `<div class="review">
+      <span class="${r.marks[qi] ? 'ok' : 'no'}">${r.marks[qi] ? '정답' : '오답'}</span> · 문제 ${r.bi * 3 + qi + 1}
+      <div>${esc(q.text)}</div>
+      <p>내 답: ${esc(show(q, S.answers[`${r.bi}-${qi}`]))} / 정답: ${esc(q.type === 'mc' ? q.options[q.answer] : q.answers[0])}</p>
+      <p>${esc(q.why)}</p></div>`).join('')).join('')}
+    <button class="btn" style="width:100%;margin-top:16px" onclick="S=fresh();render()">처음으로</button>
+  </div>`;
+}
+
+render();
+</script>
+</body>
+</html>

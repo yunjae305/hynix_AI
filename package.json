@@ -1,0 +1,14 @@
+{
+  "name": "ai-exam-mock",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node check.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.7.0"
+  },
+  "devDependencies": {
+    "exceljs": "^4.4.0"
+  }
+}
