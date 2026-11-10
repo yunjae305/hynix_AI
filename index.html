@@ -14,9 +14,9 @@
 <style>
 /* 편집기(IDE)풍 화면. 색은 모두 토큰으로 두고 테마만 바꾼다. */
 :root[data-theme=dark]{color-scheme:dark;--bg:#1e1e1e;--side:#252526;--act:#333333;--act-ink:#8b8b8b;--tbar:#323233;--tbar-ink:#cccccc;--tab:#2d2d2d;--line:#3c3c3c;--ink:#cccccc;--strong:#ffffff;--sub:#9d9d9d;
-  --btn:#0e639c;--btn-h:#1177bb;--focus:#3794ff;--sel:#04395e;--hover:#2a2d2e;--input:#3c3c3c;--input-line:#3c3c3c;--ok:#89d185;--bad:#f48771;--bad-bg:#5a1d1d;--cmt:#6a9955;--lnum:#858585;--chip:#37373d;--link:#3794ff;--th:#2d2d2d}
+  --btn:#0e639c;--btn-h:#1177bb;--focus:#3794ff;--sel:#04395e;--hover:#2a2d2e;--input:#3c3c3c;--input-line:#3c3c3c;--ok:#89d185;--bad:#f48771;--bad-bg:#5a1d1d;--lnum:#858585;--chip:#37373d;--link:#3794ff;--th:#2d2d2d}
 :root[data-theme=light]{color-scheme:light;--bg:#ffffff;--side:#f3f3f3;--act:#2c2c2c;--act-ink:#a6a6a6;--tbar:#dddddd;--tbar-ink:#333333;--tab:#ececec;--line:#d4d4d4;--ink:#333333;--strong:#000000;--sub:#616161;
-  --btn:#005fb8;--btn-h:#0258a8;--focus:#005fb8;--sel:#cce5ff;--hover:#e8e8e8;--input:#ffffff;--input-line:#c8c8c8;--ok:#2e7d32;--bad:#c72e0f;--bad-bg:#fdecea;--cmt:#008000;--lnum:#237893;--chip:#e4e6f1;--link:#006ab1;--th:#f3f3f3}
+  --btn:#005fb8;--btn-h:#0258a8;--focus:#005fb8;--sel:#cce5ff;--hover:#e8e8e8;--input:#ffffff;--input-line:#c8c8c8;--ok:#2e7d32;--bad:#c72e0f;--bad-bg:#fdecea;--lnum:#237893;--chip:#e4e6f1;--link:#006ab1;--th:#f3f3f3}
 :root{--status:#0066b8;--ui:-apple-system,BlinkMacSystemFont,"Segoe UI","Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;--mono:Consolas,"SF Mono",Menlo,"D2Coding",ui-monospace,monospace}
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -53,7 +53,7 @@ svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.4;stroke
 .gtab.on{background:var(--bg);color:var(--strong);border-top-color:var(--status)}
 button.gtab:hover{color:var(--ink)}
 .scroll{flex:1;min-height:0;overflow:auto}
-.cmt{color:var(--cmt);font:12px var(--mono)}
+.qno{color:var(--sub);font-size:12px}
 
 /* 시작 · 결과 */
 .editor{flex:1;min-height:0;display:flex;flex-direction:column}
@@ -81,7 +81,7 @@ button.gtab:hover{color:var(--ink)}
 .ab{display:grid;place-items:center;height:48px;color:var(--act-ink);border-left:2px solid transparent}
 .ab svg{width:22px;height:22px}
 .ab:hover,.ab.on{color:#fff}.ab.on{border-left-color:#fff}
-.sidebar{width:232px;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;flex:none}
+.sidebar{width:var(--sw,232px);background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;flex:none}
 .work.noside .sidebar{display:none}
 .sh{padding:0 20px;height:32px;line-height:32px;font-size:11px;letter-spacing:.04em;color:var(--sub)}
 .tree{overflow:auto;flex:1;padding-bottom:12px}
@@ -96,16 +96,25 @@ button.gtab:hover{color:var(--ink)}
 .tw{width:12px;text-align:center;color:var(--sub);font-size:10px}
 .col{flex:1;min-width:0;display:flex;flex-direction:column}
 .tabs{display:none}
-.main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1.15fr)}
+.main{flex:1;min-height:0;display:grid;position:relative;grid-template-columns:var(--cx,51%) minmax(0,1fr);grid-template-rows:var(--ry,46%) minmax(0,1fr)}
 .panel{min-height:0;min-width:0;display:flex;flex-direction:column}
-#pq{grid-row:1/3;border-right:1px solid var(--line)}
-#pf{border-bottom:1px solid var(--line)}
+.s0{grid-area:1/1/3/2;border-right:1px solid var(--line)}
+.s1{grid-area:1/2/2/3;border-bottom:1px solid var(--line)}
+.s2{grid-area:2/2/3/3}
+.panel.drop{outline:2px solid var(--focus);outline-offset:-2px}
+/* 창 경계선: 끌어서 크기 조절 */
+.rz{position:absolute;z-index:3;touch-action:none}
+.rz:hover,.rz.drag{background:var(--focus)}
+.rz.v{top:0;bottom:0;left:calc(var(--cx,51%) - 2px);width:5px;cursor:col-resize}
+.rz.h{left:var(--cx,51%);right:0;top:calc(var(--ry,46%) - 2px);height:5px;cursor:row-resize}
+.rz.s{position:relative;width:5px;margin:0 -3px 0 -2px;cursor:col-resize;flex:none}
+.work.noside .rz.s{display:none}
 .foot{display:flex;gap:8px;justify-content:flex-end;padding:8px 12px;border-top:1px solid var(--line);background:var(--side);flex:none}
 
 .qn{min-width:38px;justify-content:center;padding:0 8px;font:13px var(--mono);position:relative}
 .qn.done::after{content:"";position:absolute;right:5px;top:6px;width:6px;height:6px;border-radius:50%;background:var(--ok)}
 .scn{padding:16px 20px 18px;background:var(--side);border-bottom:1px solid var(--line)}
-.scn h2{margin:4px 0 6px;font-size:15px;font-weight:600;color:var(--strong)}
+.scn h2{margin:0 0 6px;font-size:15px;font-weight:600;color:var(--strong)}
 .scn p{margin:0;font-size:14px;line-height:1.65;white-space:pre-line}
 .grp{padding:8px 12px 2px 20px;font-size:11px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .qnode{padding-left:20px}
@@ -137,7 +146,6 @@ button.gtab:hover{color:var(--ink)}
 
 /* AI 채팅 */
 .ph{display:flex;align-items:center;gap:8px;height:35px;padding:0 12px 0 20px;font-size:11px;letter-spacing:.04em;color:var(--sub);background:var(--side);border-bottom:1px solid var(--line);flex:none}
-.pill{margin-left:auto;font:11px var(--mono);background:var(--chip);color:var(--ink);border-radius:10px;padding:1px 8px;letter-spacing:0}
 #pc{background:var(--side)}
 .msgs{flex:1;min-height:0;overflow:auto;padding:4px 0;display:flex;flex-direction:column}
 .msg,.wait{padding:10px 20px;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
@@ -145,8 +153,6 @@ button.gtab:hover{color:var(--ink)}
 .msg.me{background:var(--bg);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .msg .at{background:var(--chip);border-radius:3px;padding:0 4px;font-size:12.5px}
 .wait{color:var(--sub);font-size:13px}
-.hint{color:var(--sub);text-align:center;margin:auto;padding:16px;font-size:13px}
-.rule{margin:0;padding:6px 20px;font-size:11.5px;line-height:1.5;color:var(--sub);border-top:1px solid var(--line);flex:none}
 .att{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 12px 0;font-size:12px;flex:none}
 .att[hidden]{display:none}
 .att span{background:var(--chip);border-radius:3px;padding:2px 7px}
@@ -161,7 +167,7 @@ button.gtab:hover{color:var(--ink)}
 .pop button:hover,.pop button:focus{background:var(--sel);color:var(--strong)}
 .pop small{color:var(--sub);margin-left:auto}
 
-@media (max-width:1100px){.sidebar{display:none}}
+@media (max-width:1100px){.sidebar,.rz.s{display:none}}
 @media (max-width:860px){
   .activity{display:none}
   .titlebar{height:44px}.tb{height:44px;width:44px}
@@ -171,7 +177,8 @@ button.gtab:hover{color:var(--ink)}
   .main{display:block}
   .panel{display:none;height:100%}
   .panel.on{display:flex}
-  #pq{border:0}
+  .panel{border:0}
+  .rz{display:none}
   .qn{min-width:44px}
   .gtab{height:44px}
   .foot{justify-content:space-between}.foot .btn{min-height:44px;flex:1}
@@ -179,7 +186,6 @@ button.gtab:hover{color:var(--ink)}
   .q input,.send textarea{font-size:16px} /* iOS가 입력창을 확대하지 않도록 */
   .pop button{min-height:44px}
   .page{padding:28px 16px 40px}
-  .statusbar .wide{display:none}
 }
 @media (prefers-reduced-motion:reduce){.pbar b{transition:none}}
 </style>
@@ -265,6 +271,17 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 const answered = () => Object.values(S.answers).filter((v) => v !== '' && v != null).length;
 const ext = (name) => name.split('.').pop();
 
+// ───────── 창 배치: 경계선을 끌어 크기를 바꾸고, 창 머리줄을 다른 창에 끌어다 놓아 자리를 맞바꾼다
+// order = [왼쪽, 오른쪽 위, 오른쪽 아래]에 놓일 창. cx·ry = 세로·가로 경계 위치(%), sw = 탐색기 폭(px)
+const LAYOUT0 = { cx: 51, ry: 46, sw: 232, order: ['pq', 'pf', 'pc'] };
+const L = { ...LAYOUT0, order: [...LAYOUT0.order] };
+try {
+  const saved = JSON.parse(localStorage.getItem('layout'));
+  if (saved && [...saved.order].sort().join() === 'pc,pf,pq' && [saved.cx, saved.ry, saved.sw].every(Number.isFinite)) Object.assign(L, saved);
+} catch (e) { /* 저장된 배치가 없거나 깨졌으면 기본 배치 */ }
+const saveLayout = () => { try { localStorage.setItem('layout', JSON.stringify(L)); } catch (e) { /* 저장 못 해도 이번 화면에는 적용된다 */ } };
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
 // ───────── 테마 · 전체화면
 const ICON = {
   sun: '<svg class="i-sun" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/></svg>',
@@ -272,7 +289,6 @@ const ICON = {
   full: '<svg viewBox="0 0 16 16"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
   x: '<svg viewBox="0 0 16 16"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg>',
   files: '<svg viewBox="0 0 16 16"><path d="M5.5 4.5V2.5h5l3 3v6h-2.5M2.5 4.5h5l3 3v6h-8z"/></svg>',
-  chat: '<svg viewBox="0 0 16 16"><path d="M2.5 3.5h11v7.5H7l-3 2.5V11H2.5z"/></svg>',
   play: '<svg viewBox="0 0 16 16"><path d="M4.5 2.8l8 5.2-8 5.2z" fill="currentColor"/></svg>',
 };
 const canFull = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
@@ -324,7 +340,7 @@ function home() { // 제목과 응시하기 버튼만 둔다
   return shell('AI 역량 모의시험', `<main class="editor"><div class="hero">
     <h1>AI 역량 모의시험</h1>
     <button class="btn start" data-act="start">${ICON.play}응시하기</button>
-  </div></main>`, `<span class="sp"></span><span>Claude Haiku</span>`);
+  </div></main>`, `<span class="sp"></span>`);
 }
 
 function exam() {
@@ -332,30 +348,29 @@ function exam() {
   return shell(`${B.title} — AI 역량 모의시험`, `<div class="work">
     <nav class="activity" aria-label="보기 전환">
       <button class="ab on" id="abSide" aria-label="탐색기 열기/닫기" title="탐색기">${ICON.files}</button>
-      <button class="ab" id="abChat" aria-label="AI 채팅 입력창으로 이동" title="AI 채팅">${ICON.chat}</button>
     </nav>
-    <aside class="sidebar" aria-label="탐색기"><div class="tree" id="tree"></div></aside>
+    <aside class="sidebar" aria-label="탐색기"><div class="tree" id="tree"></div></aside><div class="rz s" data-rz="sw"></div>
     <div class="col">
       <div class="tabs" role="tablist">${[['q', '문제'], ['f', '파일'], ['c', 'AI 채팅']].map(([k, t]) => `<button role="tab" data-tab="${k}">${t}</button>`).join('')}</div>
       <div class="main">
         <section class="panel" id="pq">
-          <div class="gtabs qtabs" id="qtabs" aria-label="문제 번호"></div>
+          <div class="gtabs qtabs" id="qtabs" aria-label="문제 번호" draggable="true" data-drag="pq"></div>
           <div class="scroll" id="qbox"></div>
         </section>
-        <section class="panel" id="pf"><div class="gtabs" id="files"></div><div class="scroll" id="fv"></div></section>
+        <section class="panel" id="pf"><div class="gtabs" id="files" draggable="true" data-drag="pf"></div><div class="scroll" id="fv"></div></section>
         <section class="panel" id="pc">
-          <div class="ph">AI 채팅<span class="pill">Haiku · 원샷</span></div>
+          <div class="ph" draggable="true" data-drag="pc">AI 채팅</div>
           <div class="msgs" id="msgs" aria-live="polite"></div>
-          <p class="rule">질문마다 새 대화입니다. AI는 이전 질문과 답을 기억하지 못하니 필요한 파일과 내용을 매번 함께 보내세요. 질문과 첨부는 합쳐서 2만 토큰까지입니다.</p>
           <div class="att" id="att" hidden aria-live="polite"></div>
           <form class="send" id="send"><div class="pop" id="pop" hidden></div>
             <textarea id="inp" placeholder="@로 파일을 멘션해 물어보세요" aria-label="AI에게 질문"></textarea>
             <button class="btn" id="go">전송</button></form>
         </section>
+        <div class="rz v" data-rz="cx"></div><div class="rz h" data-rz="ry"></div>
       </div>
       <div class="foot"><button class="btn ghost" id="prev">이전 문제</button><button class="btn" id="next">다음 문제</button></div>
     </div>
-  </div>`, `<span id="stt"></span><span class="sp"></span><span class="wide">Claude Haiku</span><span class="wide">원샷 · 2만 토큰</span>`);
+  </div>`, `<span id="stt"></span><span class="sp"></span><span>원샷 · 2만 토큰</span>`);
 }
 
 function bindExam() {
@@ -364,7 +379,6 @@ function bindExam() {
   const Q = (n) => BUNDLES[Math.floor(n / 3)].questions[n % 3];
   const qid = (n) => `${Math.floor(n / 3)}-${n % 3}`;
   const isDone = (n) => { const v = S.answers[qid(n)]; return v !== '' && v != null; };
-  const kind = (n) => (Q(n).type === 'mc' ? '객관식' : '단답형');
 
   // 답한 문제 표시(번호 탭 · 탐색기)와 맨 위 진행 선
   const progress = () => {
@@ -382,8 +396,8 @@ function bindExam() {
     const body = q.type === 'mc'
       ? q.options.map((o, k) => `<button class="opt ${a === k ? 'on' : ''}" data-q="${qid(n)}" data-k="${k}" aria-pressed="${a === k}"><k>${'ABCD'[k]}</k><span>${esc(o)}</span></button>`).join('')
       : `<input data-q="${qid(n)}" value="${esc(a ?? '')}" placeholder="답을 입력하세요" autocomplete="off" aria-label="단답형 답">`;
-    $('qbox').innerHTML = `<div class="scn"><span class="cmt">// 상황 · 문제 ${S.b * 3 + 1}~${S.b * 3 + 3} 공통</span><h2>${esc(B.title)}</h2>${B.scenario ? `<p>${esc(B.scenario)}</p>` : ''}</div>
-      <div class="q"><span class="cmt">// 문제 ${n + 1} · ${kind(n)}</span><h3>${esc(q.text)}</h3>${body}</div>`;
+    $('qbox').innerHTML = `<div class="scn"><h2>${esc(B.title)}</h2>${B.scenario ? `<p>${esc(B.scenario)}</p>` : ''}</div>
+      <div class="q"><span class="qno">문제 ${n + 1}</span><h3>${esc(q.text)}</h3>${body}</div>`;
     $('qbox').scrollTop = 0;
     $('qtabs').innerHTML = Array.from({ length: TOTAL }, (_, i) => `<button class="gtab qn ${i === n ? 'on' : ''}" data-go="${i}" aria-label="문제 ${i + 1}" ${i === n ? 'aria-current="true"' : ''}>${i + 1}</button>`).join('');
     $('qtabs').querySelector('.on').scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -402,7 +416,7 @@ function bindExam() {
   // 탐색기: 문제 1~15(상황별로 묶어 표시)와 지금 상황의 첨부파일
   const drawTree = () => {
     $('tree').innerHTML = `<div class="sh">문제</div>` + BUNDLES.map((X, bi) => `<div class="grp">${esc(X.title)}</div>` +
-      X.questions.map((_, qi) => { const n = bi * 3 + qi; return `<button class="node qnode" data-go="${n}"><span class="dot"></span><span class="nm">문제 ${n + 1}</span><span class="n">${kind(n)}</span></button>`; }).join('')).join('') +
+      X.questions.map((_, qi) => { const n = bi * 3 + qi; return `<button class="node qnode" data-go="${n}"><span class="dot"></span><span class="nm">문제 ${n + 1}</span></button>`; }).join('')).join('') +
       `<div class="sh">첨부파일</div>` + B.files.map((f, k) => `<button class="node file" data-f="${k}"><i class="ft" data-x="${ext(f.name)}"></i><span class="nm mono">${esc(f.name)}</span><span class="n">${fmt(f.tokens)}</span></button>`).join('');
   };
   const showFile = (i) => {
@@ -425,7 +439,7 @@ function bindExam() {
     const list = S.chats[S.b];
     msgs.innerHTML = (list.length
       ? list.map((m) => `<div class="msg ${m.who}"><span class="who">${m.who === 'me' ? '나' : 'Haiku'}</span>${esc(m.text).replace(/@([^\s@]+)/g, (all, n) => B.files.some((f) => f.name === n) ? `<span class="at mono">@${n}</span>` : all)}</div>`).join('')
-      : `<div class="hint">이 상황의 파일을 @로 멘션해<br>AI에게 물어보세요.</div>`) + (waiting ? `<div class="wait">답변을 만드는 중…</div>` : '');
+      : '') + (waiting ? `<div class="wait">답변을 만드는 중…</div>` : '');
     msgs.scrollTop = msgs.scrollHeight;
   };
   const leave = () => { S.drafts[S.b] = inp.value; };
@@ -449,7 +463,6 @@ function bindExam() {
     if (g) go(+g.dataset.go);
   });
   $('abSide').onclick = () => $('abSide').classList.toggle('on', !document.querySelector('.work').classList.toggle('noside'));
-  $('abChat').onclick = () => inp.focus();
 
   // 입력창에 멘션된 파일과 토큰 크기를 보여준다. 질문 글의 토큰은 서버에서만 정확히 셀 수 있어 합계에서 뺀다.
   const drawAtt = () => {
@@ -458,7 +471,7 @@ function bindExam() {
     $('att').hidden = !files.length;
     $('att').classList.toggle('over', sum > LIMIT);
     $('att').innerHTML = files.map((f) => `<span class="mono">${esc(f.name)} <b>${fmt(f.tokens)}</b></span>`).join('') +
-      `<em>첨부 합계 ${fmt(sum)} / ${fmt(LIMIT)} 토큰${sum > LIMIT ? ' · 한도 초과' : ''} (질문 글 제외)</em>`;
+      `<em>첨부 합계 ${fmt(sum)} / ${fmt(LIMIT)} 토큰${sum > LIMIT ? ' · 한도 초과' : ''}</em>`;
   };
 
   // @멘션: 커서 앞이 "@글자"로 끝나면 이 상황의 파일만 후보로 띄운다
@@ -494,6 +507,48 @@ function bindExam() {
     if (S.screen === 'exam' && S.b === b) { drawMsgs(); document.getElementById('go').disabled = false; }
   });
 
+  // 창 배치 적용과 조절
+  const main = document.querySelector('.main'), work = document.querySelector('.work');
+  const applyLayout = () => {
+    L.order.forEach((id, i) => { $(id).classList.remove('s0', 's1', 's2'); $(id).classList.add('s' + i); });
+    main.style.setProperty('--cx', L.cx + '%'); main.style.setProperty('--ry', L.ry + '%'); work.style.setProperty('--sw', L.sw + 'px');
+  };
+  document.querySelectorAll('.rz').forEach((h) => {
+    const k = h.dataset.rz;
+    h.onpointerdown = (e) => {
+      e.preventDefault(); h.setPointerCapture(e.pointerId); h.classList.add('drag');
+      h.onpointermove = (m) => {
+        const r = main.getBoundingClientRect();
+        if (k === 'cx') L.cx = clamp((m.clientX - r.left) / r.width * 100, 20, 80);
+        if (k === 'ry') L.ry = clamp((m.clientY - r.top) / r.height * 100, 15, 85);
+        if (k === 'sw') L.sw = clamp(m.clientX - document.querySelector('.sidebar').getBoundingClientRect().left, 150, 480);
+        applyLayout();
+      };
+      h.onpointerup = h.onpointercancel = () => { h.onpointermove = null; h.classList.remove('drag'); saveLayout(); };
+    };
+    h.ondblclick = () => { L[k] = LAYOUT0[k]; applyLayout(); saveLayout(); }; // 두 번 누르면 기본 크기로
+  });
+  let dragId = null;
+  main.addEventListener('dragstart', (e) => {
+    dragId = e.target.closest?.('[data-drag]')?.dataset.drag || null;
+    if (dragId) { e.dataTransfer.setData('text/plain', dragId); e.dataTransfer.effectAllowed = 'move'; }
+  });
+  const clearDrop = () => document.querySelectorAll('.panel.drop').forEach((p) => p.classList.remove('drop'));
+  main.addEventListener('dragover', (e) => {
+    const p = e.target.closest('.panel');
+    if (!dragId || !p || p.id === dragId) return;
+    e.preventDefault(); clearDrop(); p.classList.add('drop');
+  });
+  main.addEventListener('drop', (e) => {
+    const p = e.target.closest('.panel');
+    if (!dragId || !p || p.id === dragId) return;
+    e.preventDefault();
+    const a = L.order.indexOf(dragId), b = L.order.indexOf(p.id);
+    [L.order[a], L.order[b]] = [L.order[b], L.order[a]];
+    applyLayout(); saveLayout();
+  });
+  main.addEventListener('dragend', () => { dragId = null; clearDrop(); });
+
   // 이전 · 다음 · 제출
   $('prev').onclick = () => go(S.q - 1);
   $('next').onclick = () => {
@@ -505,7 +560,7 @@ function bindExam() {
   };
   $('quit').onclick = () => { if (confirm('시험을 그만둘까요? 입력한 답은 사라집니다.')) goHome(); };
 
-  $('stt').textContent = B.title;
+  $('stt').textContent = B.title; applyLayout();
   inp.value = S.drafts[S.b]; drawTree(); drawAtt(); setTab(S.tab); showFile(S.file[S.b]); drawMsgs(); drawQ();
 }
 
@@ -518,18 +573,17 @@ function result() {
   });
   const show = (q, a) => a == null || a === '' ? '미응답' : q.type === 'mc' ? q.options[a] : a;
   return shell('결과 — AI 역량 모의시험', page('결과.md', 'md', `
-    <span class="cmt">// 채점 결과</span>
     <div class="score">${total}<small> / ${TOTAL}</small></div>
     <p class="lead">정답률 ${Math.round(total / TOTAL * 100)}%</p>
     ${rows.map((r) => `<div class="bar"><span><span class="mono" style="color:var(--sub)">0${r.bi + 1}</span> ${esc(r.B.title)}</span><i><b style="width:${r.n / 3 * 100}%"></b></i><span class="mono">${r.n}/3</span></div>`).join('')}
     <h2 style="margin-top:36px">문제별 해설</h2>
     ${rows.map((r) => r.B.questions.map((q, qi) => `<div class="review">
-      <span class="${r.marks[qi] ? 'ok' : 'no'}">${r.marks[qi] ? '✓ 정답' : '✗ 오답'}</span> <span class="cmt">문제 ${r.bi * 3 + qi + 1}</span>
+      <span class="${r.marks[qi] ? 'ok' : 'no'}">${r.marks[qi] ? '✓ 정답' : '✗ 오답'}</span> <span class="qno">문제 ${r.bi * 3 + qi + 1}</span>
       <div class="qt">${esc(q.text)}</div>
       <p>내 답: ${esc(show(q, S.answers[`${r.bi}-${qi}`]))} / 정답: ${esc(q.type === 'mc' ? q.options[q.answer] : q.answers[0])}</p>
       <p>${esc(q.why)}</p></div>`).join('')).join('')}
     <button class="btn start" style="margin-top:20px;justify-content:center" data-act="home">처음으로</button>`),
-  `<span>점수 ${total}/${TOTAL}</span><span class="sp"></span><span class="wide">Claude Haiku</span>`);
+  `<span>점수 ${total}/${TOTAL}</span><span class="sp"></span>`);
 }
 
 render();
