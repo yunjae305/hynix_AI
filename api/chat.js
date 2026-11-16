@@ -10,6 +10,17 @@ const MAX_CHARS = 100_000; // 토큰을 세기 전에 걸러내는 글자 수 �
 const MAX_B64 = 3_500_000; // 첨부(PDF·이미지) base64 합계 상한. Vercel 요청 본문 한도(4.5MB) 안쪽
 const MAX_BLOCKS = 20;
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+const BAD_FORMAT = '메시지 형식이 올바르지 않습니다.';
+
+// IP별 호출 제한(고정 창). 1분에 10번, 1시간에 120번.
+// ponytail: 이 기록은 함수 인스턴스 메모리에만 있어 인스턴스마다 따로 세고 콜드 스타트 때 사라진다.
+// 확실히 막으려면 공유 저장소(예: Upstash)나 Vercel Firewall 규칙이 필요하다.
+const MINUTE_MS = 60_000;
+const HOUR_MS = 3_600_000;
+const PER_MINUTE = 10;
+const PER_HOUR = 120;
+const MAX_TRACKED_IPS = 5_000; // 기억하는 IP 수 상한(메모리 상한)
+const hits = new Map(); // ip → { m: 분 창 시작, mc: 분 창 횟수, h: 시간 창 시작, hc: 시간 창 횟수 }
 
 const SYSTEM = `당신은 AI 역량시험 응시자를 돕는 보조 AI입니다.
 이 대화는 질문 한 번과 답 한 번으로 끝나며, 이전 질문이나 답은 기억하지 못합니다. 되묻지 말고 받은 내용만으로 한 번에 답하세요.
@@ -34,7 +45,7 @@ function cleanBlock(b) {
 export function validate(body) {
   const list = body?.messages;
   if (!Array.isArray(list) || list.length !== 1) return { error: '질문은 한 번에 하나만 보낼 수 있습니다.' };
-  const bad = { error: '메시지 형식이 올바르지 않습니다.' };
+  const bad = { error: BAD_FORMAT };
   const m = list[0];
   if (m?.role !== 'user') return bad;
   let content, chars = 0, b64 = 0;
@@ -53,16 +64,83 @@ export function validate(body) {
   return { messages: [{ role: 'user', content }] };
 }
 
+// 오래된 기록을 지우고, 그래도 상한이면 가장 먼저 들어온 IP부터 지운다.
+function pruneHits(now) {
+  for (const [ip, e] of hits) if (now - e.h >= HOUR_MS) hits.delete(ip);
+  for (const ip of hits.keys()) {
+    if (hits.size < MAX_TRACKED_IPS) break;
+    hits.delete(ip);
+  }
+}
+
+// 호출 한 번을 센다. 허용이면 { ok: true }, 넘었으면 { ok: false, retryAfter: 초 }.
+export function rateLimit(ip, now) {
+  if (!hits.has(ip) && hits.size >= MAX_TRACKED_IPS) pruneHits(now);
+  const old = hits.get(ip);
+  const m = old && now - old.m < MINUTE_MS ? { m: old.m, mc: old.mc } : { m: now, mc: 0 };
+  const h = old && now - old.h < HOUR_MS ? { h: old.h, hc: old.hc } : { h: now, hc: 0 };
+  if (h.hc >= PER_HOUR) return { ok: false, retryAfter: Math.ceil((h.h + HOUR_MS - now) / 1000) };
+  if (m.mc >= PER_MINUTE) return { ok: false, retryAfter: Math.ceil((m.m + MINUTE_MS - now) / 1000) };
+  hits.set(ip, { ...m, mc: m.mc + 1, ...h, hc: h.hc + 1 });
+  return { ok: true };
+}
+
+// Vercel이 x-real-ip·x-forwarded-for 를 직접 채운다(클라이언트가 보낸 값은 덮어쓴다).
+function clientIp(headers) {
+  return headers['x-real-ip'] || headers['x-forwarded-for']?.split(',')[0].trim() || 'unknown';
+}
+
+// 진짜 인증은 아니다(curl은 Origin을 꾸밀 수 있다). 다른 사이트의 페이지가 이 주소를 쓰는 것만 막는다.
+// 프록시 뒤에서는 host 가 내부 주소일 수 있어 x-forwarded-host 도 함께 본다.
+function isSameOrigin(headers) {
+  const hosts = [headers['x-forwarded-host'], headers.host].filter(Boolean);
+  if (!headers.origin || !hosts.length) return false;
+  try {
+    return hosts.includes(new URL(headers.origin).host);
+  } catch {
+    return false;
+  }
+}
+
+function waitText(sec) {
+  return sec >= 60 ? `${Math.ceil(sec / 60)}분` : `${sec}초`;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST만 지원합니다.' });
+  const headers = req.headers ?? {};
+  if (!isSameOrigin(headers)) return res.status(403).json({ error: '이 사이트에서 보낸 요청만 받습니다.' });
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error('ANTHROPIC_API_KEY is not set');
     return res.status(500).json({ error: 'AI 서버에 API 키가 설정되지 않았습니다.' });
   }
-  const { error, messages } = validate(req.body);
+  let body;
+  try {
+    body = req.body; // Vercel은 JSON이 깨져 있으면 읽는 순간 예외를 던진다
+  } catch {
+    return res.status(400).json({ error: BAD_FORMAT });
+  }
+  const { error, messages } = validate(body);
   if (error) return res.status(400).json({ error });
 
-  // ponytail: 사용자별 호출 제한 없음. 공개 후 남용이 보이면 IP 기준 제한(예: Upstash)을 붙일 것.
+  const limit = rateLimit(clientIp(headers), Date.now());
+  if (!limit.ok) {
+    res.setHeader('Retry-After', String(limit.retryAfter));
+    return res.status(429).json({ error: `질문을 너무 자주 보냈습니다. ${waitText(limit.retryAfter)} 뒤에 다시 시도해 주세요.` });
+  }
+  return ask(res, messages);
+}
+
+// 모델 답에서 글자만 모은다. 답변 길이 상한(생각 포함)에 걸려 잘렸으면 그렇다고 알린다.
+function replyText(response) {
+  // 채팅창은 일반 글자만 보여주므로, 지시를 어기고 섞여 나온 굵게 표시(**)는 지운다
+  const text = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('').replace(/\*\*/g, '').trim();
+  if (response.stop_reason !== 'max_tokens') return text || '답변이 비어 있습니다. 다시 시도해 주세요.';
+  if (!text) return '답변이 길어져 끝까지 만들지 못했습니다. 질문 범위를 좁혀서 다시 물어봐 주세요.';
+  return `${text}\n\n(답변이 길어 여기서 끊겼습니다. 더 필요하면 질문을 좁혀서 다시 물어봐 주세요.)`;
+}
+
+async function ask(res, messages) {
   try {
     const client = new Anthropic();
     // 채팅 + 첨부파일이 2만 토큰을 넘으면 모델을 부르지 않는다
@@ -82,9 +160,7 @@ export default async function handler(req, res) {
     if (response.stop_reason === 'refusal') {
       return res.status(200).json({ reply: '이 요청에는 답할 수 없습니다. 질문을 바꿔서 다시 시도해 주세요.', used });
     }
-    // 채팅창은 일반 글자만 보여주므로, 지시를 어기고 섞여 나온 굵게 표시(**)는 지운다
-    const reply = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('').replace(/\*\*/g, '').trim();
-    return res.status(200).json({ reply: reply || '답변이 비어 있습니다. 다시 시도해 주세요.', used });
+    return res.status(200).json({ reply: replyText(response), used });
   } catch (err) {
     if (err instanceof Anthropic.RateLimitError) {
       return res.status(429).json({ error: '요청이 많습니다. 잠시 후 다시 시도해 주세요.' });

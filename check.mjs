@@ -1,6 +1,6 @@
 // 실행: node check.mjs  (키 없이 돌아가는 요청 검사 확인)
 import assert from 'node:assert';
-import handler, { validate } from './api/chat.js';
+import handler, { validate, rateLimit } from './api/chat.js';
 
 const u = (content) => ({ role: 'user', content });
 assert.deepEqual(validate({ messages: [u('안녕')] }).messages, [u('안녕')]);
@@ -26,13 +26,43 @@ assert.ok(withBlock({ type: 'image', source: { type: 'base64', media_type: 'imag
 assert.ok(withBlock({ type: 'tool_result', content: 'x' }), '다른 블록 종류 거부');
 assert.ok(withBlock({ ...img, source: { ...img.source, data: 'A'.repeat(3_500_001) } }), '첨부 크기 상한');
 
-// 키가 없으면 모델을 부르지 않고 500
-const res = { status(c) { this.code = c; return this; }, json(b) { this.body = b; return this; } };
+// 핸들러: 메서드 → Origin → 키 → 본문 순서로 거른다. 모델은 부르지 않는다.
+const call = async (req) => {
+  const res = { headers: {}, setHeader(k, v) { this.headers[k] = v; }, status(c) { this.code = c; return this; }, json(b) { this.body = b; return this; } };
+  await handler(req, res);
+  return res;
+};
+const site = { host: 'exam.example', origin: 'https://exam.example' };
+const post = (extra) => ({ method: 'POST', headers: site, body: { messages: [u('a')] }, ...extra });
 delete process.env.ANTHROPIC_API_KEY;
-await handler({ method: 'POST', body: { messages: [u('a')] } }, res);
-assert.equal(res.code, 500);
-await handler({ method: 'GET' }, res);
-assert.equal(res.code, 405);
+assert.equal((await call({ method: 'GET' })).code, 405);
+assert.equal((await call(post({ headers: { host: site.host } }))).code, 403, 'Origin 없음 거부');
+assert.equal((await call(post({ headers: undefined }))).code, 403, '헤더 없음 거부');
+assert.equal((await call(post({ headers: { ...site, origin: 'https://evil.example' } }))).code, 403, '다른 Origin 거부');
+assert.equal((await call(post({ headers: { ...site, origin: 'null' } }))).code, 403, 'Origin null 거부');
+assert.equal((await call(post())).code, 500, '키가 없으면 500');
+const behindProxy = { host: 'internal.local', 'x-forwarded-host': site.host };
+assert.equal((await call(post({ headers: { ...behindProxy, origin: site.origin } }))).code, 500, 'x-forwarded-host 일치면 통과');
+assert.equal((await call(post({ headers: { ...behindProxy, origin: 'https://evil.example' } }))).code, 403, '둘 다 불일치면 거부');
+// 가짜 키: 본문 검사에서 끝나므로 API는 부르지 않는다
+process.env.ANTHROPIC_API_KEY = 'fake-key-for-check';
+const broken = await call({ method: 'POST', headers: site, get body() { throw new SyntaxError('bad json'); } });
+assert.deepEqual([broken.code, broken.body.error], [400, '메시지 형식이 올바르지 않습니다.'], '깨진 JSON은 400');
+assert.equal((await call(post({ body: {} }))).code, 400, '빈 본문 400');
+delete process.env.ANTHROPIC_API_KEY;
+
+// 호출 제한: 1분 10번, 1시간 120번
+const T = 1_000_000_000_000;
+for (let i = 0; i < 10; i++) assert.ok(rateLimit('1.1.1.1', T + i).ok, `분당 ${i + 1}번째 허용`);
+const over = rateLimit('1.1.1.1', T + 10);
+assert.ok(!over.ok && over.retryAfter === 60, '분당 11번째 거부');
+assert.ok(rateLimit('2.2.2.2', T).ok, '다른 IP는 따로 센다');
+assert.ok(rateLimit('1.1.1.1', T + 60_000).ok, '1분 뒤 다시 허용');
+let t = T;
+for (let i = 0; i < 120; i++, t += 6_001) assert.ok(rateLimit('3.3.3.3', t).ok, `시간당 ${i + 1}번째 허용`);
+const hourOver = rateLimit('3.3.3.3', t);
+assert.ok(!hourOver.ok && hourOver.retryAfter > 60, '시간당 121번째 거부');
+assert.ok(rateLimit('3.3.3.3', T + 3_600_000).ok, '1시간 뒤 다시 허용');
 console.log('api ok');
 
 // 문제 데이터 형식 검사
