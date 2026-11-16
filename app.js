@@ -28,6 +28,14 @@ async function toApi(m, files) {
   }
   return { role: 'user', content: [...blocks, { type: 'text', text: m.text }] };
 }
+// 질문 글의 토큰 어림값. 글자 종류마다 무게를 달리 준다(data.js에 재어 둔 글 파일의 토큰 수에 맞춘 값).
+const TOKEN_WEIGHT = { cjk: 1.5, letter: 0.3, digit: 1, space: 0.3, other: 1 };
+function guessTokens(text) {
+  const n = (re) => (text.match(re) || []).length;
+  const cjk = n(/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7a3]/g), letter = n(/[A-Za-z]/g), digit = n(/[0-9]/g), space = n(/\s/g);
+  const other = text.length - cjk - letter - digit - space;
+  return Math.ceil(cjk * TOKEN_WEIGHT.cjk + letter * TOKEN_WEIGHT.letter + digit * TOKEN_WEIGHT.digit + space * TOKEN_WEIGHT.space + other * TOKEN_WEIGHT.other);
+}
 // 원샷: 이번 질문 하나만 보낸다. 이전 질문·답은 화면에만 남고 AI에는 전달되지 않는다.
 async function askAI(question, files) {
   if (location.protocol === 'file:') { // 파일을 직접 열었을 때는 서버가 없으므로 데모 응답
@@ -390,14 +398,17 @@ function bindExam() {
   });
   $('abSide').onclick = () => $('abSide').classList.toggle('on', !document.querySelector('.work').classList.toggle('noside'));
 
-  // 입력창에 멘션된 파일과 토큰 크기를 보여준다. 질문 글의 토큰은 서버에서만 정확히 셀 수 있어 합계에서 뺀다.
+  // 입력창에 멘션된 파일과 질문 글의 토큰 크기를 합쳐 보여준다. 서버(api/chat.js)도 둘을 합쳐 한도를 잰다.
+  // 질문 글은 서버만 정확히 셀 수 있어 화면에서는 어림값('약')으로 더한다.
   const drawAtt = () => {
     const files = B.files.filter((f) => inp.value.includes('@' + f.name));
-    const sum = files.reduce((s, f) => s + f.tokens, 0);
-    $('att').hidden = !files.length;
+    const typed = guessTokens(inp.value.trim());
+    const sum = files.reduce((s, f) => s + f.tokens, 0) + typed;
+    $('att').hidden = !files.length && !typed;
     $('att').classList.toggle('over', sum > LIMIT);
     $('att').innerHTML = files.map((f) => `<span class="mono">${esc(f.name)} <b>${fmt(f.tokens)}</b></span>`).join('') +
-      `<div class="meter"><b style="width:${Math.min(100, sum / LIMIT * 100)}%"></b></div><em>첨부 합계 ${fmt(sum)} / ${fmt(LIMIT)} 토큰${sum > LIMIT ? ' · 한도 초과' : ''}</em>`;
+      (typed ? `<span>질문 <b>약 ${fmt(typed)}</b></span>` : '') +
+      `<div class="meter"><b style="width:${Math.min(100, sum / LIMIT * 100)}%"></b></div><em>합계 약 ${fmt(sum)} / ${fmt(LIMIT)} 토큰${sum > LIMIT ? ' · 한도 초과' : ''}</em>`;
   };
 
   // @멘션: 커서 앞이 "@글자"로 끝나면 이 상황의 파일만 후보로 띄운다
