@@ -75,7 +75,7 @@ function bundle1() {
           why: `${mcNo}는 일본어로 "사이즈가 맞지 않으니 교환해 달라"는 내용이다. 정책 4에 따라 교환 요청은 환불 요청이 아니다. 나머지 세 건은 한국어·영어·일본어로 환불을 요청했다.` },
         { type: 'short', text: `VIP 고객이 보낸 '단순 변심 환불' 요청 티켓은 몇 건인가? (숫자만)`, answers: ['5', '5건', '5개'],
           why: `두 파일을 함께 보내면 2만 토큰을 넘는다. ① customers.csv에서 total_spend_12m이 500만 원 이상인 customer_id 10개를 뽑는다(495만·499만 원인 고객 2명은 VIP가 아니다). ② 그 목록을 적어 cs_tickets.xlsx에서 해당 고객의 티켓을 찾고 원문의 뜻으로 분류한다. 단순 변심 환불은 ${vipChange.map((x) => x.id).sort().join(', ')}로 5건. 불량 환불·교환·배송 문의는 세지 않는다.` },
-        { type: 'short', text: '그 5건 중 정책상 환불이 가능한 건들의 환불액 합계는 얼마인가? (원 단위 숫자만)', answers: ['260000', '260,000', '260000원', '260,000원', '26만원', '26만'],
+        { type: 'short', text: `VIP 고객이 보낸 '단순 변심 환불' 요청 가운데 정책상 환불이 가능한 건들의 환불액 합계는 얼마인가? (원 단위 숫자만)`, answers: ['260000', '260,000', '260000원', '260,000원', '26만원', '26만'],
           why: `가능한 것은 3건이다. 89,000원(5일), 152,000원(22일, VIP라 30일 이내 적용), 37,000원(9일). 각 건에서 왕복 배송비 6,000원을 빼면 83,000 + 146,000 + 31,000 = 260,000원. 240,000원 건은 개봉, 64,000원 건은 34일 경과로 불가다.` },
       ],
     },
@@ -120,8 +120,8 @@ function bundle2() {
         why: `결과와 원문을 함께 보내면 2만 토큰을 넘는다. ① test_results.csv에서 v2이고 format_ok=Y, label_correct=N인 case_id ${wrongIds.length}개(${wrongIds.join(', ')})를 뽑고 ② 그 번호를 적어 reviews.csv에서 원문을 읽는다. 모두 "~는 좋았지만 ~는 나빴다"는 혼합 감정 리뷰다. v2는 긍정·부정 둘 중 하나만 고르게 해서 이런 리뷰를 처리하지 못한다.` },
       { type: 'short', text: 'prompt_v2가 출력 형식을 지키지 못한(format_ok=N) 리뷰들은 모두 같은 언어로 쓰였다. 어떤 언어인가?', answers: ['일본어', '일어', 'japanese', '日本語'],
         why: `① test_results.csv에서 v2의 format_ok=N인 case_id(${failIds.join(', ')})를 뽑고 ② reviews.csv에서 원문을 확인하면 모두 일본어다. v2의 규칙과 예시가 한국어만 가정하고 있다.` },
-      { type: 'short', text: `1번 문제의 라벨이 틀린 리뷰들 가운데 '환불이 늦어지는 것'을 불만으로 말한 리뷰의 case_id는? (숫자만)`, answers: [String(refundId)],
-        why: `라벨이 틀린 ${wrongIds.length}건의 원문을 읽으면 case ${refundId}("상담원은 친절했지만 환불이 3주째 들어오지 않고 있어요")만 환불 지연을 말한다. reviews.csv 전체에서 '환불'을 찾으면 다른 리뷰가 많이 나오므로, 반드시 1번에서 뽑은 번호로 범위를 좁혀야 한다.` },
+      { type: 'short', text: `prompt_v2에서 출력 형식은 지켰지만 라벨이 틀린 리뷰들 가운데 '환불이 늦어지는 것'을 불만으로 말한 리뷰의 case_id는? (숫자만)`, answers: [String(refundId)],
+        why: `라벨이 틀린 ${wrongIds.length}건의 원문을 읽으면 case ${refundId}("상담원은 친절했지만 환불이 3주째 들어오지 않고 있어요")만 환불 지연을 말한다. reviews.csv 전체에서 '환불'을 찾으면 다른 리뷰가 많이 나오므로, 반드시 앞 문제에서 뽑은 번호로 범위를 좁혀야 한다.` },
     ],
   };
 }
@@ -176,7 +176,7 @@ function bundle3() {
     questions: [
       { type: 'mc', text: 'answer_draft.md의 문장 중, 검색된 청크(retrieved_chunks.json) 어디에도 근거가 없는 문장은?',
         options: ['① 최대 5일까지 이월', '② 다음 해 3월 31일까지 사용', '③ 사용일 3일 전까지 등록', '④ 못 쓴 이월 연차는 수당 지급'], answer: 3,
-        why: '수당 지급에 관한 내용은 어떤 청크에도 없다. 출처 표시([HR-2025-03])가 붙어 있어도 원문에 없으면 환각이다. ①은 청크에 근거는 있지만 폐기된 옛 문서다(3번 문제).' },
+        why: '수당 지급에 관한 내용은 어떤 청크에도 없다. 출처 표시([HR-2025-03])가 붙어 있어도 원문에 없으면 환각이다. ①은 청크에 근거는 있지만 폐기된 옛 문서다(이 상황의 세 번째 문제).' },
       { type: 'short', text: `retrieved_chunks.json에서 score가 0.75 이상인 청크들의 문서 가운데, doc_registry.csv에서 status가 '폐기'인 문서는 몇 개인가? (숫자만)`, answers: ['2', '2개', '2건'],
         why: `두 파일을 함께 보내면 2만 토큰을 넘는다. ① retrieved_chunks.json에서 score 0.75 이상인 청크의 doc_id(${hiDocs.join(', ')})를 뽑고 ② 그 목록을 적어 doc_registry.csv에서 status를 확인한다. 폐기는 ${dead.join(', ')}로 2개. 점수가 높다고 현행 문서인 것은 아니다.` },
       { type: 'short', text: 'answer_draft.md의 ①이 인용한 문서에서 대체 관계(replaced_by)를 끝까지 따라가면 나오는 현행 문서의 doc_id는?', answers: ['HR-2025-03', 'HR202503', 'HR 2025 03'],
