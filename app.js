@@ -81,7 +81,7 @@ function restore(v) {
   }));
   return {
     screen: v.screen, q: v.q, b: v.b, tab: v.tab, exits: v.exits, inFull: v.inFull, warn: v.warn, lastV: v.lastV, answers,
-    chats: v.chats.map((c) => c.filter(okMsg).map((m) => ({ who: m.who, text: m.text, ...('files' in m ? { files: [...m.files] } : {}) }))),
+    chats: v.chats.map((c) => c.filter(okMsg).map((m) => ({ who: m.who, text: m.text, ...('files' in m ? { files: [...m.files] } : {}), ...(Number.isFinite(m.at) ? { at: m.at } : {}) }))),
     drafts: [...v.drafts], file: [...v.file],
   };
 }
@@ -351,11 +351,21 @@ function bindExam() {
     }
     $('fv').scrollTop = 0;
   };
+  // 메신저처럼 AI의 말은 왼쪽(얼굴·이름·말풍선), 내가 보낸 말은 오른쪽에 둔다. 시각은 말풍선 아래쪽 옆에 붙는다.
+  const clock = (at) => { const d = new Date(at), h = d.getHours(); return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  const AI_NAME = 'Doro팀장';
+  const AI_FACE = '<img class="who" src="doro.png" alt="" width="164" height="124">'; // 받은 그림은 자르지 않고 통째로 보인다(object-fit:contain)
+  const bubble = (m) => {
+    const tx = `<div class="tx">${esc(m.text).replace(/@([^\s@]+)/g, (all, n) => B.files.some((f) => f.name === n) ? `<span class="at mono">@${n}</span>` : all)}</div>`;
+    const row = `<div class="row">${tx}${Number.isFinite(m.at) ? `<time class="tm">${clock(m.at)}</time>` : ''}</div>`;
+    return m.who === 'me'
+      ? `<div class="msg me"><span class="sr">나</span>${row}</div>`
+      : `<div class="msg ai">${AI_FACE}<div class="col"><span class="nm">${AI_NAME}</span>${row}</div></div>`;
+  };
   const drawMsgs = (waiting) => {
     const list = S.chats[S.b], msgs = $('msgs'); // 답을 기다리는 사이 다시 그렸을 수 있어 지금 화면의 대화 창을 찾는다
-    msgs.innerHTML = (list.length
-      ? list.map((m) => `<div class="msg ${m.who}"><span class="who" aria-hidden="true">${m.who === 'me' ? '나' : 'AI'}</span><div class="tx">${esc(m.text).replace(/@([^\s@]+)/g, (all, n) => B.files.some((f) => f.name === n) ? `<span class="at mono">@${n}</span>` : all)}</div></div>`).join('')
-      : '') + (waiting ? `<div class="wait" role="status" aria-label="답변을 만드는 중"><i></i><i></i><i></i></div>` : '');
+    msgs.innerHTML = list.map(bubble).join('')
+      + (waiting ? `<div class="msg ai">${AI_FACE}<div class="col"><span class="nm">${AI_NAME}</span><div class="row"><div class="tx wait" role="status" aria-label="답변을 만드는 중"><i></i><i></i><i></i></div></div></div></div>` : '');
     msgs.scrollTop = msgs.scrollHeight;
   };
   const leave = () => { S.drafts[S.b] = inp.value; };
@@ -417,10 +427,10 @@ function bindExam() {
     const text = inp.value.trim(); if (!text) return;
     const b = S.b, chat = S.chats[b];
     const files = B.files.filter((f) => text.includes('@' + f.name));
-    chat.push({ who: 'me', text, files: files.map((f) => f.name) }); inp.value = ''; pop.hidden = true; drawMsgs(true); drawAtt();
+    chat.push({ who: 'me', text, files: files.map((f) => f.name), at: Date.now() }); inp.value = ''; pop.hidden = true; drawMsgs(true); drawAtt();
     busy.add(chat); $('go').disabled = true;
-    try { chat.push({ who: 'ai', text: await askAI(chat.at(-1), B.files) }); }
-    catch (err) { chat.push({ who: 'ai', text: err.message || '응답을 받지 못했습니다. 다시 시도해 주세요.' }); console.error(err); }
+    try { chat.push({ who: 'ai', text: await askAI(chat.at(-1), B.files), at: Date.now() }); }
+    catch (err) { chat.push({ who: 'ai', text: err.message || '응답을 받지 못했습니다. 다시 시도해 주세요.', at: Date.now() }); console.error(err); }
     finally { busy.delete(chat); }
     if (S.chats[b] === chat && S.screen === 'exam' && S.b === b) { drawMsgs(); document.getElementById('go').disabled = false; }
   });
