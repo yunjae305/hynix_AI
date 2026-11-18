@@ -36,41 +36,65 @@ function guessTokens(text) {
   const other = text.length - cjk - letter - digit - space;
   return Math.ceil(cjk * TOKEN_WEIGHT.cjk + letter * TOKEN_WEIGHT.letter + digit * TOKEN_WEIGHT.digit + space * TOKEN_WEIGHT.space + other * TOKEN_WEIGHT.other);
 }
+// 답을 기다리는 최대 시간. 서버 함수 제한(vercel.json의 maxDuration 120초)보다 길게 두어 보통은 서버가 먼저 오류로 답한다.
+const ASK_TIMEOUT_MS = 130_000;
 // 원샷: 이번 질문 하나만 보낸다. 이전 질문·답은 화면에만 남고 AI에는 전달되지 않는다.
 async function askAI(question, files) {
   if (location.protocol === 'file:') { // 파일을 직접 열었을 때는 서버가 없으므로 데모 응답
     return '[데모 응답] 파일을 직접 열어 AI 서버가 없습니다.\n전달될 파일: ' + (question.files.join(', ') || '없음');
   }
-  const r = await fetch('/api/chat', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ messages: [await toApi(question, files)] }),
-  });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || `AI 서버 오류 (${r.status})`);
-  return data.reply;
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), ASK_TIMEOUT_MS);
+  const stop = new Promise((_, no) => ctl.signal.addEventListener('abort', () => no(new Error('abort'))));
+  stop.catch(() => {});
+  try {
+    const body = JSON.stringify({ messages: [await Promise.race([toApi(question, files), stop])] }); // 첨부파일 읽기도 시간 제한 안에
+    const r = await fetch('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: ctl.signal });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || `AI 서버 오류 (${r.status})`);
+    if (typeof data.reply !== 'string') throw new Error('AI 응답을 받지 못했습니다. 다시 시도해 주세요.');
+    return data.reply;
+  } catch (e) {
+    if (ctl.signal.aborted) throw new Error('답이 너무 오래 걸려 기다리기를 멈췄습니다. 다시 보내 주세요.');
+    if (e instanceof TypeError) throw new Error('AI 서버에 연결하지 못했습니다. 인터넷 연결을 확인하고 다시 보내 주세요.'); // fetch 네트워크 실패
+    throw e;
+  } finally { clearTimeout(timer); }
 }
 
 // ───────── 채점
 // NFKC: 한글·일본어 입력기로 친 전각 숫자·영문(５, ＨＲ－２０２５)을 반각으로 맞춘다
 const norm = (s) => String(s ?? '').normalize('NFKC').toLowerCase().replace(/\s+/g, '');
+// 정답이 순수 숫자일 때만 쓰는 비교용 값: 세 자리마다 찍은 쉼표와 뒤에 붙은 단위 하나를 뗀다. 숫자 꼴이 아니면 null.
+const UNIT = /(원|건|개|번|회|명|일|곳|차례|가지|종|장|줄|행)$/;
+const plainNum = (s) => {
+  const v = norm(s).replace(UNIT, '');
+  return /^\d+$/.test(v) ? v : /^\d{1,3}(,\d{3})+$/.test(v) ? v.replace(/,/g, '') : null;
+};
 function isCorrect(q, a) {
   if (q.type === 'mc') return a === q.answer;
-  return a != null && norm(a) !== '' && q.answers.some((x) => norm(x) === norm(a));
+  if (a == null || norm(a) === '') return false;
+  const n = plainNum(a);
+  return q.answers.some((x) => norm(x) === norm(a) || (n !== null && plainNum(x) === n));
 }
 console.assert(isCorrect({ type: 'short', answers: ['박준'] }, '  박 준 '), '공백 무시');
 console.assert(isCorrect({ type: 'short', answers: ['GPT'] }, 'gpt'), '대소문자 무시');
 console.assert(isCorrect({ type: 'short', answers: ['HR-2025-03'] }, 'ＨＲ－２０２５－０３') && isCorrect({ type: 'short', answers: ['5'] }, '５'), '전각 문자 무시');
 console.assert(!isCorrect({ type: 'short', answers: ['3'] }, ''), '빈 답은 오답');
 console.assert(!isCorrect({ type: 'mc', answer: 1 }, undefined), '미응답은 오답');
+console.assert(['337번', '337 건', '３３７개', '337'].every((a) => isCorrect({ type: 'short', answers: ['337'] }, a)), '숫자 답의 단위·공백 무시');
+console.assert(['260,000원', '260000원', '260,000'].every((a) => isCorrect({ type: 'short', answers: ['260000'] }, a)), '숫자 답의 천 단위 쉼표 무시');
+console.assert(!['3370', '33', '337.5', '-337', '337번 338번', '3,37', '0337', '337만', '337k', '337번째'].some((a) => isCorrect({ type: 'short', answers: ['337'] }, a)), '숫자가 다르면 오답');
+console.assert(!isCorrect({ type: 'short', answers: ['2'] }, '2만') && !isCorrect({ type: 'short', answers: ['35'] }, '3,5') && !isCorrect({ type: 'short', answers: ['12'] }, '1,2'), '배수·쉼표 위치가 다르면 오답');
+console.assert(!isCorrect({ type: 'short', answers: ['Taeo'] }, 'Taeo번'), '숫자 답이 아니면 단위를 떼지 않는다');
 
 // ───────── 상태
 // 시험 중 화면을 벗어나면(전체화면 해제 · 탭 전환 · 창 전환) 한 번에 3점 감점, 누적 21점이면 자동 탈락
 const PENALTY = 3, FAIL_AT = 21;
-const fresh = () => ({ screen: 'home', q: 0, b: 0, tab: 'q', exits: 0, inFull: false, warn: false, lastV: 0, answers: {}, chats: BUNDLES.map(() => []), drafts: BUNDLES.map(() => ''), file: BUNDLES.map(() => 0) });
+// AI에게 보낼 수 있는 질문은 시험 한 번에 80회. AI가 답한 질문(서버 200)만 센다. 서버는 시험 단위를 모르므로 화면에서만 센다.
+const CHAT_MAX = 80;
+const fresh = () => ({ screen: 'home', q: 0, b: 0, tab: 'q', exits: 0, inFull: false, warn: false, lastV: 0, asked: 0, answers: {}, chats: BUNDLES.map(() => []), drafts: BUNDLES.map(() => ''), file: BUNDLES.map(() => 0) });
 let S = fresh();
 // 새로고침·탭 전환으로 답이 사라지지 않도록 세션에 저장해 둔다
-const SAVE_KEY = 'ai-exam-mock-v6';
+const SAVE_KEY = 'ai-exam-mock-v7';
 // 저장된 값을 검사해 정리한 상태를 돌려준다. 쓸 수 없으면 null(새로 시작).
 // 손상되거나 손으로 고친 값 때문에 화면이 깨지지 않게 하려는 것일 뿐 부정행위 방지는 아니다. 응시자는 여전히 자기 상태를 고칠 수 있다.
 function restore(v) {
@@ -78,6 +102,7 @@ function restore(v) {
   if (!v || typeof v !== 'object') return null;
   if (!['home', 'exam', 'result'].includes(v.screen) || !inRange(v.q, TOTAL) || v.b !== Math.floor(v.q / 3) || !['q', 'f', 'c'].includes(v.tab)) return null;
   if (!Number.isInteger(v.exits) || v.exits < 0 || typeof v.inFull !== 'boolean' || typeof v.warn !== 'boolean' || !Number.isFinite(v.lastV)) return null;
+  if (!Number.isInteger(v.asked) || v.asked < 0 || v.asked > CHAT_MAX) return null;
   const okMsg = (m) => !!m && typeof m === 'object' && ['me', 'ai'].includes(m.who) && typeof m.text === 'string' && (!('files' in m) || isArr(m.files) && m.files.every((f) => typeof f === 'string'));
   if (!isArr(v.chats) || v.chats.length !== n || !v.chats.every(isArr)) return null;
   if (!isArr(v.drafts) || v.drafts.length !== n || !v.drafts.every((d) => typeof d === 'string')) return null;
@@ -88,7 +113,7 @@ function restore(v) {
     if (q.type === 'mc' ? inRange(a, q.options.length) : typeof a === 'string') answers[k] = a;
   }));
   return {
-    screen: v.screen, q: v.q, b: v.b, tab: v.tab, exits: v.exits, inFull: v.inFull, warn: v.warn, lastV: v.lastV, answers,
+    screen: v.screen, q: v.q, b: v.b, tab: v.tab, exits: v.exits, inFull: v.inFull, warn: v.warn, lastV: v.lastV, asked: v.asked, answers,
     chats: v.chats.map((c) => c.filter(okMsg).map((m) => ({ who: m.who, text: m.text, ...('files' in m ? { files: [...m.files] } : {}), ...(Number.isFinite(m.at) ? { at: m.at } : {}) }))),
     drafts: [...v.drafts], file: [...v.file],
   };
@@ -101,6 +126,8 @@ try {
 // 대화 목록 자체를 키로 쓰므로 fresh()로 새로 시작하면(goHome·startExam) 이전 시험의 표시가 따라오지 않는다.
 const busy = new WeakSet();
 const penalty = () => S.exits * PENALTY;
+// 남은 질문 수. 답을 기다리는 질문(여러 상황에서 동시에 보낸 것 포함)도 미리 뺀다.
+const chatsLeft = () => CHAT_MAX - S.asked - S.chats.filter((c) => busy.has(c)).length;
 // 전체화면 상태에서 새로고침하면 전체화면이 풀리므로 이탈 1회로 센다(새로고침 직전에 탭 숨김으로 이미 셌으면 다시 세지 않는다)
 if (S.screen === 'exam' && S.inFull) {
   S.inFull = false;
@@ -142,11 +169,16 @@ const canFull = !!(document.documentElement.requestFullscreen || document.docume
 // 폰·태블릿(터치 전용 기기)은 전체화면을 쓰지 않는다. 탭·앱 전환 감지만 적용한다.
 const useFull = canFull && !matchMedia('(hover: none) and (pointer: coarse)').matches;
 const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+// 전체화면 중 Esc 한 번에 전체화면이 풀려 감점되지 않게 Esc를 페이지가 받는다(크로미움 Keyboard Lock). 길게 누르면 풀린다.
+// 지원하지 않는 브라우저(파이어폭스·사파리)에서는 아무것도 하지 않는다.
+const lockEsc = () => { try { navigator.keyboard?.lock?.(['Escape'])?.catch(() => {}); } catch (e) { /* 미지원 */ } };
+const unlockEsc = () => { try { navigator.keyboard?.unlock?.(); } catch (e) { /* 미지원 */ } };
 function enterFull() { // 끝나면 풀리는 약속을 돌려준다. 미지원·거부여도 오류를 내지 않는다
   const el = document.documentElement;
-  try { return Promise.resolve((el.requestFullscreen || el.webkitRequestFullscreen)?.call(el)).catch(() => {}); } catch (e) { return Promise.resolve(); }
+  try { return Promise.resolve((el.requestFullscreen || el.webkitRequestFullscreen)?.call(el)).then(lockEsc, () => {}); } catch (e) { return Promise.resolve(); }
 }
 function exitFull() {
+  unlockEsc();
   if (!isFull()) return;
   try { Promise.resolve((document.exitFullscreen || document.webkitExitFullscreen)?.call(document)).catch(() => {}); } catch (e) { /* 미지원 */ }
 }
@@ -247,6 +279,7 @@ function home() { // 표시줄 없이 제목, 응시하기 버튼, 시험지 표
     `문항 수(${TOTAL}문항)를 확인하시오. 문항은 번호를 눌러 순서와 관계없이 풀 수 있습니다.`,
     '객관식 문항은 보기 하나를 고르고, 단답형 문항은 답을 직접 입력하시오.',
     '답안은 제출하기 전까지 고칠 수 있으며, 제출한 뒤에는 고칠 수 없습니다.',
+    `AI 채팅으로 보낼 수 있는 질문은 시험 전체에서 총 ${CHAT_MAX}회입니다. 답을 받지 못한 질문은 횟수에 포함되지 않습니다.`,
     useFull ? '시험은 전체화면으로 진행됩니다. 시험 중에는 전체화면을 해제하지 마시오.' : '',
     `시험 중에는 다른 ${useFull ? '탭이나 창' : '탭이나 앱'}으로 이동하지 마시오. 화면을 벗어나면 <b>1회당 ${PENALTY}점이 감점</b>되며, 감점이 <b>누적 ${FAIL_AT}점</b>이 되면 <b>자동으로 탈락</b> 처리됩니다.`,
     `${useFull ? '새로고침, 주소창 누르기, 찾기(Ctrl+F)' : '주소창 누르기, 알림 창 내리기'}도 화면 이탈로 처리될 수 있으니 유의하시오.`,
@@ -295,7 +328,7 @@ function exam() {
       </div>
       <div class="foot"><button class="btn ghost" id="prev">이전 문제</button><button class="btn" id="next">다음 문제</button></div>
     </div>
-  </div>`, `<span id="stt"></span><span id="pen"></span><span class="sp"></span><span>원샷 · 1만 3천 토큰</span>`);
+  </div>`, `<span id="stt"></span><span id="pen"></span><span class="sp"></span><span class="lim">원샷 · 1만 3천 토큰 · <span id="quota"></span></span>`);
 }
 
 function bindExam() {
@@ -403,7 +436,12 @@ function bindExam() {
   // 합계가 한도를 넘으면 전송 버튼을 꺼서 보내지 못하게 한다(AI가 답하는 중에도 꺼 둔다).
   // 넘었는지는 화면(#att의 over 표시)에서 읽는다. 답을 기다리는 동안 화면을 다시 그려도 지금 입력창 기준으로 맞는다.
   const isOver = () => $('att').classList.contains('over');
-  const syncGo = () => { $('go').disabled = busy.has(S.chats[S.b]) || isOver(); };
+  const syncGo = () => {
+    const left = chatsLeft();
+    $('go').disabled = busy.has(S.chats[S.b]) || isOver() || left <= 0;
+    $('quota').textContent = `남은 질문 ${left}/${CHAT_MAX}`;
+    $('quota').classList.toggle('out', left <= 0);
+  };
   const drawAtt = () => {
     const files = B.files.filter((f) => inp.value.includes('@' + f.name));
     const typed = guessTokens(inp.value.trim());
@@ -439,17 +477,36 @@ function bindExam() {
   // 전송
   $('send').addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (busy.has(S.chats[S.b]) || isOver()) return; // Enter의 requestSubmit()은 꺼진 전송 버튼과 상관없이 제출되므로 여기서 막는다
+    if (busy.has(S.chats[S.b]) || isOver() || chatsLeft() <= 0) return; // Enter의 requestSubmit()은 꺼진 전송 버튼과 상관없이 제출되므로 여기서 막는다
     const text = inp.value.trim(); if (!text) return;
     const b = S.b, chat = S.chats[b];
     const files = B.files.filter((f) => text.includes('@' + f.name));
     chat.push({ who: 'me', text, files: files.map((f) => f.name), at: Date.now() }); inp.value = ''; pop.hidden = true; drawMsgs(true); drawAtt();
     busy.add(chat); syncGo();
-    try { chat.push({ who: 'ai', text: await askAI(chat.at(-1), B.files), at: Date.now() }); }
-    catch (err) { chat.push({ who: 'ai', text: err.message || '응답을 받지 못했습니다. 다시 시도해 주세요.', at: Date.now() }); console.error(err); }
+    let failed = false;
+    try {
+      chat.push({ who: 'ai', text: await askAI(chat.at(-1), B.files), at: Date.now() });
+      if (S.chats[b] === chat) S.asked++; // AI가 답한 질문만 센다(그사이 새 시험을 시작했으면 세지 않는다)
+    }
+    catch (err) { failed = true; chat.push({ who: 'ai', text: err.message || '응답을 받지 못했습니다. 다시 시도해 주세요.', at: Date.now() }); console.error(err); }
     finally { busy.delete(chat); }
-    if (S.chats[b] === chat && S.screen === 'exam' && S.b === b) { drawMsgs(); syncGo(); }
+    if (S.chats[b] !== chat) return; // 그사이 시험을 새로 시작했거나 나갔다
+    const here = S.screen === 'exam' && S.b === b;
+    if (failed) restoreQuestion(text, b, here);
+    if (here) drawMsgs();
+    if (S.screen === 'exam') syncGo(); // 남은 횟수가 바뀌면 다른 상황의 전송 버튼도 달라진다
+    save();
   });
+  // 보내지 못한 질문은 입력창에 되돌려 놓는다(옮겨 적은 ID 목록이 사라지지 않게). 기다리는 사이 새로 친 글이 있으면 덮지 않는다.
+  // 기다리는 사이 화면을 다시 그렸을 수 있어 지금 화면의 입력창을 찾는다. 다른 상황에 가 있으면 그 상황의 임시 입력에 넣는다.
+  function restoreQuestion(text, b, here) {
+    const box = here && document.getElementById('inp');
+    if (!box) { if (!S.drafts[b].trim()) S.drafts = S.drafts.map((d, i) => (i === b ? text : d)); return; }
+    if (box.value.trim()) return;
+    box.value = text;
+    box.dispatchEvent(new Event('input')); // 토큰 합계·전송 버튼을 지금 입력창 기준으로 다시 맞춘다
+    document.getElementById('pop').hidden = true;
+  }
 
   // 창 배치 적용과 조절
   const main = document.querySelector('.main'), work = document.querySelector('.work');
@@ -522,7 +579,7 @@ function result() {
     <div class="sum">
       <div><div class="ring"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="fg" cx="60" cy="60" r="52" stroke-dasharray="${(2 * Math.PI * 52).toFixed(1)}" stroke-dashoffset="${(2 * Math.PI * 52 * (1 - final / TOTAL)).toFixed(1)}"/></svg>
         ${failed ? `<div class="score fail">탈락</div>` : `<div class="score">${final}<small> / ${TOTAL}</small></div>`}</div>
-        <p class="lead">정답 ${total}개${pen ? `<br><span class="pen">화면 이탈 ${S.exits}회 · 감점 ${pen}점${failed ? ' · 자동 탈락' : ''}</span>` : ''}</p></div>
+        <p class="lead">정답 ${total}개<br>AI 질문 ${S.asked}/${CHAT_MAX}회${pen ? `<br><span class="pen">화면 이탈 ${S.exits}회 · 감점 ${pen}점${failed ? ' · 자동 탈락' : ''}</span>` : ''}</p></div>
       <div class="bars">${rows.map((r) => `<div class="bar"><span>${esc(r.B.title)}</span><i><b style="width:${r.n / 3 * 100}%"></b></i><span class="mono">${r.n}/3</span></div>`).join('')}</div>
     </div>
     <h2>문제별 해설</h2>

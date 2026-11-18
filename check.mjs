@@ -1,6 +1,7 @@
 // 실행: node check.mjs  (키 없이 돌아가는 요청 검사 확인)
 import assert from 'node:assert';
-import handler, { validate, rateLimit, toInput, replyText, MAX_INPUT_TOKENS } from './api/chat.js';
+import { readFileSync } from 'node:fs';
+import handler, { validate, rateLimit, toInput, replyText, MAX_INPUT_TOKENS, OPENAI_BUDGET_MS } from './api/chat.js';
 
 const u = (content) => ({ role: 'user', content });
 assert.deepEqual(validate({ messages: [u('안녕')] }).messages, [u('안녕')]);
@@ -81,6 +82,35 @@ for (let i = 0; i < 120; i++, t += 6_001) assert.ok(rateLimit('3.3.3.3', t).ok, 
 const hourOver = rateLimit('3.3.3.3', t);
 assert.ok(!hourOver.ok && hourOver.retryAfter > 60, '시간당 121번째 거부');
 assert.ok(rateLimit('3.3.3.3', T + 3_600_000).ok, '1시간 뒤 다시 허용');
+
+// 화면(app.js)과 서버가 같은 값을 쓰는지. app.js는 브라우저용이라 글자로 읽는다.
+const APP = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+const num = (re, what) => { const m = APP.match(re); assert.ok(m, `app.js에서 ${what}를 찾지 못함`); return Number(m[1].replace(/_/g, '')); };
+assert.equal(num(/const LIMIT = ([\d_]+)/, 'LIMIT'), MAX_INPUT_TOKENS, '화면 LIMIT = 서버 MAX_INPUT_TOKENS');
+const label = APP.match(/원샷 · ([\d만천백 ]+) 토큰/)?.[1];
+const fromKo = (s) => [...s.matchAll(/(\d+)(만|천|백)?/g)].reduce((n, [, d, u]) => n + Number(d) * ({ 만: 10_000, 천: 1_000, 백: 100 }[u] ?? 1), 0);
+assert.ok(label && fromKo(label) === MAX_INPUT_TOKENS, `상태 표시줄 한도 문구(${label}) = ${MAX_INPUT_TOKENS}`);
+// 시간 제한 순서: 서버의 OpenAI 호출 < Vercel 함수 제한 < 화면이 기다리는 시간 (보통은 서버가 먼저 JSON 오류로 답한다)
+const maxDuration = JSON.parse(readFileSync(new URL('./vercel.json', import.meta.url), 'utf8')).functions?.['api/chat.js']?.maxDuration;
+const askTimeout = num(/const ASK_TIMEOUT_MS = ([\d_]+)/, 'ASK_TIMEOUT_MS');
+assert.ok(OPENAI_BUDGET_MS < maxDuration * 1000 && maxDuration * 1000 < askTimeout, `시간 제한 순서 ${OPENAI_BUDGET_MS} < ${maxDuration}초 < ${askTimeout}`);
+assert.match(APP, /signal: ctl\.signal/, '화면의 fetch에 시간 제한');
+// 질문 횟수: 시험 한 번에 80회(화면에서만 센다)
+assert.equal(num(/const CHAT_MAX = (\d+)/, 'CHAT_MAX'), 80, '시험 한 번에 AI 질문 80회');
+assert.match(APP, /chatsLeft\(\) <= 0\) return;/, '남은 횟수가 0이면 Enter 전송도 막는다');
+
+// 단답 채점: app.js의 채점 부분만 떼어 돌린다
+const grading = APP.slice(APP.indexOf('// ───────── 채점'), APP.indexOf('// ───────── 상태'));
+const isCorrect = new Function('console', `${grading}; return isCorrect;`)({ assert: (ok, msg) => assert.ok(ok, `app.js 자가 검사: ${msg}`) });
+const short = (answers) => ({ type: 'short', answers });
+for (const a of ['337', '337번', '337 건', '３３７개', ' 337 ']) assert.ok(isCorrect(short(['337']), a), `337 ← ${a}`);
+for (const a of ['260,000원', '260000원', '260,000', '260000 원']) assert.ok(isCorrect(short(['260000']), a), `260000 ← ${a}`);
+assert.ok(isCorrect(short(['5', '5건']), '5개'), '단위가 다른 숫자 답');
+for (const a of ['3370', '33', '337.5', '-337', '337번 338번', '3,37', '0337', '337만', '337k', '337번째', '', '번']) assert.ok(!isCorrect(short(['337']), a), `337 ✗ ${a}`);
+assert.ok(!isCorrect(short(['2']), '2만') && !isCorrect(short(['3']), '3천') && !isCorrect(short(['5']), '5k'), '배수 단위는 다른 수');
+assert.ok(!isCorrect(short(['35']), '3,5') && !isCorrect(short(['12']), '1,2'), '천 단위가 아닌 쉼표');
+assert.ok(!isCorrect(short(['Taeo']), 'Taeo번') && isCorrect(short(['HR-2025-03']), 'hr-2025-03'), '숫자가 아닌 답은 그대로 비교');
+assert.ok(isCorrect(short(['26만원']), '26만 원') && !isCorrect(short(['260000']), '26만'), '만 단위 표기는 허용 답 목록으로만');
 console.log('api ok');
 
 // 문제 데이터 형식 검사

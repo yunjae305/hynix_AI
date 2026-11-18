@@ -3,8 +3,8 @@
 import OpenAI from 'openai';
 
 export const MODEL = 'gpt-6.1-terra';
-const EFFORT = 'medium';
-const MAX_TOKENS = 4096; // 답변 길이 상한
+export const EFFORT = 'medium';
+export const MAX_TOKENS = 4096; // 답변 길이 상한
 // 질문 한 번에 보낼 수 있는 양(채팅 + 첨부파일). 상황마다 답에 필요한 파일을 한 번에 다 보낼 수 없게 잡은 값이다.
 // 토큰 수는 모델마다 다르게 세어지므로, 모델을 바꾸면 tools/gen-data.mjs 로 다시 재고 이 값도 다시 정한다.
 export const MAX_INPUT_TOKENS = 13_000;
@@ -13,6 +13,9 @@ const MAX_B64 = 3_500_000; // 첨부(PDF·이미지) base64 합계 상한. Verce
 const MAX_BLOCKS = 20;
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 const BAD_FORMAT = '메시지 형식이 올바르지 않습니다.';
+// OpenAI 호출(토큰 세기 + 답 만들기, 재시도 포함)에 쓰는 시간 상한. vercel.json의 maxDuration(120초)보다 짧게 두어
+// 함수가 강제로 끊기기 전에 JSON 오류로 답한다. 화면(app.js ASK_TIMEOUT_MS)은 이보다 길게 기다린다.
+export const OPENAI_BUDGET_MS = 110_000;
 
 // IP별 호출 제한(고정 창). 1분에 10번, 1시간에 120번.
 // ponytail: 이 기록은 함수 인스턴스 메모리에만 있어 인스턴스마다 따로 세고 콜드 스타트 때 사라진다.
@@ -24,7 +27,7 @@ const PER_HOUR = 120;
 const MAX_TRACKED_IPS = 5_000; // 기억하는 IP 수 상한(메모리 상한)
 const hits = new Map(); // ip → { m: 분 창 시작, mc: 분 창 횟수, h: 시간 창 시작, hc: 시간 창 횟수 }
 
-const SYSTEM = `당신은 AI 역량시험 응시자를 돕는 보조 AI입니다.
+export const SYSTEM = `당신은 AI 역량시험 응시자를 돕는 보조 AI입니다.
 이 대화는 질문 한 번과 답 한 번으로 끝나며, 이전 질문이나 답은 기억하지 못합니다. 되묻지 말고 받은 내용만으로 한 번에 답하세요.
 응시자가 @로 멘션한 파일만 전달됩니다. 글자 파일과 엑셀 표는 <file> 태그로, PDF와 이미지는 "[첨부파일: 이름]" 표시 뒤에 원본으로 옵니다.
 전달된 파일과 질문 내용만 근거로 답하세요.
@@ -164,11 +167,12 @@ export function replyText(response) {
 }
 
 async function ask(res, messages) {
+  const signal = AbortSignal.timeout(OPENAI_BUDGET_MS); // 두 호출이 함께 쓰는 마감
   try {
     const client = new OpenAI();
     const input = toInput(messages);
     // 채팅 + 첨부파일이 한도를 넘으면 모델을 부르지 않는다
-    const { input_tokens: used } = await client.responses.inputTokens.count({ model: MODEL, input });
+    const { input_tokens: used } = await client.responses.inputTokens.count({ model: MODEL, input }, { signal });
     if (used > MAX_INPUT_TOKENS) {
       return res.status(400).json({
         error: `질문과 첨부파일이 ${used.toLocaleString('ko-KR')}토큰으로, 한 번에 보낼 수 있는 ${MAX_INPUT_TOKENS.toLocaleString('ko-KR')}토큰을 넘었습니다. 멘션한 파일이나 질문을 줄여 주세요.`,
@@ -181,7 +185,7 @@ async function ask(res, messages) {
       instructions: SYSTEM,
       input,
       store: false, // 응시자 질문을 OpenAI 쪽에 보관하지 않는다
-    });
+    }, { signal });
     // HTTP 200으로 왔어도 모델 쪽에서 실패(failed·cancelled)한 응답은 답으로 내보내지 않는다
     if (response.status !== 'completed' && response.status !== 'incomplete') {
       console.error('OpenAI response not completed', response.status, response.error?.code, response.error?.message);
@@ -189,6 +193,10 @@ async function ask(res, messages) {
     }
     return res.status(200).json({ reply: replyText(response), used });
   } catch (err) {
+    if (signal.aborted) {
+      console.error('OpenAI call exceeded budget', OPENAI_BUDGET_MS);
+      return res.status(504).json({ error: '답이 너무 오래 걸려 멈췄습니다. 질문 범위를 좁혀서 다시 보내 주세요.' });
+    }
     // 크레딧 소진(insufficient_quota)도 429로 오지만 기다려서 풀리는 문제가 아니므로 아래에서 로그를 남긴다
     if (err instanceof OpenAI.RateLimitError && err.code !== 'insufficient_quota') {
       return res.status(429).json({ error: '요청이 많습니다. 잠시 후 다시 시도해 주세요.' });
