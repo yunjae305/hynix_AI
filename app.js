@@ -242,7 +242,13 @@ function ask(message, okLabel) {
     const d = document.createElement('div');
     d.className = 'modal';
     d.innerHTML = `<div class="box" role="alertdialog" aria-modal="true"><p>${esc(message)}</p><div class="row"><button class="btn ghost" data-v="0">취소</button><button class="btn" data-v="1">${esc(okLabel)}</button></div></div>`;
-    d.addEventListener('click', (e) => { const v = e.target.closest('[data-v]')?.dataset.v; if (v == null) return; d.remove(); done(v === '1'); });
+    const close = (ok) => { d.remove(); done(ok); };
+    d.addEventListener('click', (e) => { const v = e.target.closest('[data-v]')?.dataset.v; if (v != null) close(v === '1'); });
+    // 초점은 두 버튼 사이에서만 돈다. Esc는 취소(전체화면 중에도 Keyboard Lock으로 페이지가 받는다).
+    d.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(false); }
+      if (e.key === 'Tab') { e.preventDefault(); const [no, yes] = d.querySelectorAll('[data-v]'); (document.activeElement === yes ? no : yes).focus(); }
+    });
     document.body.append(d);
     d.querySelector('[data-v="1"]').focus();
   });
@@ -318,7 +324,7 @@ function exam() {
         <section class="panel pattern" id="pc">
           <div class="ph" draggable="true" data-drag="pc">AI 채팅</div>
           <div class="msgs" id="msgs" aria-live="polite"></div>
-          <div class="composer"><div class="pop" id="pop" hidden></div>
+          <div class="composer"><div class="pop" id="pop" role="listbox" aria-label="멘션할 파일" hidden></div>
           <div class="att" id="att" hidden aria-live="polite"></div>
           <form class="send" id="send">
             <textarea id="inp" placeholder="@로 파일을 멘션해 물어보세요" aria-label="AI에게 질문"></textarea>
@@ -455,23 +461,41 @@ function bindExam() {
   };
 
   // @멘션: 커서 앞이 "@글자"로 끝나면 이 상황의 파일만 후보로 띄운다
+  // 후보 창이 열려 있으면 ↑↓로 고르고 Enter·Tab으로 넣는다(전송하지 않는다). 첫 후보가 기본 선택.
+  let pick = 0;
+  const hilite = () => {
+    const opts = [...pop.querySelectorAll('button')];
+    opts.forEach((o, k) => { o.classList.toggle('on', k === pick); o.setAttribute('aria-selected', k === pick); });
+    if (opts[pick]) { inp.setAttribute('aria-activedescendant', opts[pick].id); opts[pick].scrollIntoView({ block: 'nearest' }); } else inp.removeAttribute('aria-activedescendant');
+  };
+  const closePop = () => { pop.hidden = true; inp.removeAttribute('aria-activedescendant'); };
   const mention = () => {
     const m = inp.value.slice(0, inp.selectionStart).match(/@([^\s@]*)$/);
     const hits = m ? B.files.filter((f) => f.name.toLowerCase().includes(m[1].toLowerCase())) : [];
-    pop.hidden = !hits.length;
-    pop.innerHTML = hits.map((f) => `<button type="button" class="mono" data-n="${esc(f.name)}"><i class="ft" data-x="${ext(f.name)}"></i>@${esc(f.name)} <small>${fmt(f.tokens)}토큰</small></button>`).join('');
+    pop.hidden = !hits.length; pick = 0;
+    pop.innerHTML = hits.map((f, k) => `<button type="button" class="mono" role="option" id="pop-${k}" tabindex="-1" data-n="${esc(f.name)}"><i class="ft" data-x="${ext(f.name)}"></i>@${esc(f.name)} <small>${fmt(f.tokens)}토큰</small></button>`).join('');
+    if (hits.length) hilite(); else closePop();
     drawAtt();
   };
-  inp.addEventListener('input', mention);
-  pop.addEventListener('click', (e) => {
-    const n = e.target.closest('button')?.dataset.n; if (!n) return;
+  const insert = (n) => {
     const at = inp.selectionStart, head = inp.value.slice(0, at).replace(/@[^\s@]*$/, '@' + n + ' ');
     inp.value = head + inp.value.slice(at);
-    inp.focus(); inp.setSelectionRange(head.length, head.length); pop.hidden = true; drawAtt();
-  });
+    inp.focus(); inp.setSelectionRange(head.length, head.length); closePop(); drawAtt();
+  };
+  inp.addEventListener('input', mention);
+  pop.addEventListener('click', (e) => { const n = e.target.closest('button')?.dataset.n; if (n) insert(n); });
+  // 후보 창이 떠 있어도 커서가 "@글자" 뒤에 있지 않으면(다른 곳을 눌러 옮겼으면) 닫힌 것으로 본다
+  const popOpen = () => !pop.hidden && /@[^\s@]*$/.test(inp.value.slice(0, inp.selectionStart));
   inp.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') pop.hidden = true;
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').requestSubmit(); }
+    if (e.isComposing) return; // 한글 조합 중 Enter 등은 조합을 끝내는 데 쓴다
+    if (!pop.hidden && !popOpen()) closePop();
+    if (popOpen()) {
+      const n = pop.querySelectorAll('button').length;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); pick = (pick + (e.key === 'ArrowDown' ? 1 : n - 1)) % n; hilite(); return; }
+      if ((e.key === 'Enter' && !e.shiftKey) || (e.key === 'Tab' && !e.shiftKey)) { e.preventDefault(); insert(pop.querySelectorAll('button')[pick].dataset.n); return; }
+      if (e.key === 'Escape') { e.preventDefault(); closePop(); return; }
+    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('send').requestSubmit(); }
   });
 
   // 전송
