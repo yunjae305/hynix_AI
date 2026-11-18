@@ -142,6 +142,12 @@ for (const [i, B] of BUNDLES.entries()) {
     if (q.type === 'short') assert.ok(q.answers.some((a) => normA(q.why).includes(normA(a))), `${at}: 해설에 정답이 있어야 한다 (${q.answers[0]})`);
   }
   for (const s of [B.title, B.scenario, ...B.questions.flatMap((q) => [q.text, q.why, ...(q.options ?? [])])]) assert.ok(!s.includes('묶음'), `${at}: 화면 글에 '묶음' 금지`);
+  // 상황 설명에 적은 건수는 해당 파일의 행 수와 같아야 한다
+  const rowsOf = (name) => { const f = B.files.find((x) => x.name === name); return f && (name.endsWith('.json') ? JSON.parse(f.body).length : f.body.split('\n').length - 1); };
+  for (const [re, name] of [[/리뷰 (\d+)건/, 'reviews.csv'], [/청크 (\d+)개/, 'retrieved_chunks.json'], [/문서 대장 (\d+)건/, 'doc_registry.csv'], [/티켓 (\d+)건/, 'cs_tickets.xlsx'], [/(?:로그|프롬프트) (\d+)건/, 'ai_requests.csv'], [/명부 (\d+)명/, 'employees.csv']]) {
+    const m = B.scenario.match(re);
+    if (m) assert.equal(Number(m[1]), rowsOf(name), `${at}: 상황 설명의 "${m[0]}"이 ${name}의 행 수(${rowsOf(name)})와 다르다`);
+  }
   // 숫자·원문자 뒤 조사: 읽는 소리의 받침으로 고른다(0 영·1 일·3 삼·6 육·7 칠·8 팔은 받침 있음)
   const shownText = [B.scenario, ...B.questions.flatMap((q) => [q.text, q.why, ...(q.options ?? [])]), ...B.files.filter((f) => f.body && f.tokens < 2000).map((f) => f.body)];
   const PAIRS = { 은: '는', 이: '가', 을: '를', 과: '와' };

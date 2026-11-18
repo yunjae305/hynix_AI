@@ -153,7 +153,7 @@ export function build({ nDocs = 340, nChunks = 90 } = {}) {
   return {
     bundle: {
       title: '사내 규정 챗봇 답변 검증',
-      scenario: `당신은 사내 규정 챗봇의 품질 담당자입니다. 한 직원이 "챗봇 답변이 실제 규정과 다른 것 같다"고 신고했습니다.\n챗봇이 검색해 온 청크 ${nChunks}개, 문서 대장 ${nDocs}건, 답변 초안을 대조해 초안을 그대로 내보내도 되는지 판정해야 합니다.`,
+      scenario: `당신은 사내 규정 챗봇의 품질 담당자입니다. 한 직원이 "챗봇 답변이 실제 규정과 다른 것 같다"고 신고했습니다.\n챗봇이 검색해 온 청크 ${chunks.length}개, 문서 대장 ${regRows.length}건, 답변 초안을 대조해 초안을 그대로 내보내도 되는지 판정해야 합니다.`,
       files, questions,
     },
     plan,
