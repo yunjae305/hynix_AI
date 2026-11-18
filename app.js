@@ -400,6 +400,10 @@ function bindExam() {
 
   // 입력창에 멘션된 파일과 질문 글의 토큰 크기를 합쳐 보여준다. 서버(api/chat.js)도 둘을 합쳐 한도를 잰다.
   // 질문 글은 서버만 정확히 셀 수 있어 화면에서는 어림값('약')으로 더한다.
+  // 합계가 한도를 넘으면 전송 버튼을 꺼서 보내지 못하게 한다(AI가 답하는 중에도 꺼 둔다).
+  // 넘었는지는 화면(#att의 over 표시)에서 읽는다. 답을 기다리는 동안 화면을 다시 그려도 지금 입력창 기준으로 맞는다.
+  const isOver = () => $('att').classList.contains('over');
+  const syncGo = () => { $('go').disabled = busy.has(S.chats[S.b]) || isOver(); };
   const drawAtt = () => {
     const files = B.files.filter((f) => inp.value.includes('@' + f.name));
     const typed = guessTokens(inp.value.trim());
@@ -409,6 +413,7 @@ function bindExam() {
     $('att').innerHTML = files.map((f) => `<span class="mono">${esc(f.name)} <b>${fmt(f.tokens)}</b></span>`).join('') +
       (typed ? `<span>질문 <b>약 ${fmt(typed)}</b></span>` : '') +
       `<div class="meter"><b style="width:${Math.min(100, sum / LIMIT * 100)}%"></b></div><em>합계 약 ${fmt(sum)} / ${fmt(LIMIT)} 토큰${sum > LIMIT ? ' · 한도 초과' : ''}</em>`;
+    syncGo();
   };
 
   // @멘션: 커서 앞이 "@글자"로 끝나면 이 상황의 파일만 후보로 띄운다
@@ -434,16 +439,16 @@ function bindExam() {
   // 전송
   $('send').addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (busy.has(S.chats[S.b])) return; // Enter의 requestSubmit()은 꺼진 전송 버튼과 상관없이 제출되므로 여기서 막는다
+    if (busy.has(S.chats[S.b]) || isOver()) return; // Enter의 requestSubmit()은 꺼진 전송 버튼과 상관없이 제출되므로 여기서 막는다
     const text = inp.value.trim(); if (!text) return;
     const b = S.b, chat = S.chats[b];
     const files = B.files.filter((f) => text.includes('@' + f.name));
     chat.push({ who: 'me', text, files: files.map((f) => f.name), at: Date.now() }); inp.value = ''; pop.hidden = true; drawMsgs(true); drawAtt();
-    busy.add(chat); $('go').disabled = true;
+    busy.add(chat); syncGo();
     try { chat.push({ who: 'ai', text: await askAI(chat.at(-1), B.files), at: Date.now() }); }
     catch (err) { chat.push({ who: 'ai', text: err.message || '응답을 받지 못했습니다. 다시 시도해 주세요.', at: Date.now() }); console.error(err); }
     finally { busy.delete(chat); }
-    if (S.chats[b] === chat && S.screen === 'exam' && S.b === b) { drawMsgs(); document.getElementById('go').disabled = false; }
+    if (S.chats[b] === chat && S.screen === 'exam' && S.b === b) { drawMsgs(); syncGo(); }
   });
 
   // 창 배치 적용과 조절
@@ -501,7 +506,7 @@ function bindExam() {
 
   $('stt').textContent = B.title; applyLayout();
   inp.value = S.drafts[S.b]; drawTree(); drawAtt(); setTab(S.tab); showFile(S.file[S.b]); drawMsgs(busy.has(S.chats[S.b])); drawQ(); syncGuard();
-  $('go').disabled = busy.has(S.chats[S.b]);
+  syncGo();
 }
 
 function result() {
