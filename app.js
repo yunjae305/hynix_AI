@@ -94,7 +94,7 @@ const CHAT_MAX = 80;
 const fresh = () => ({ screen: 'home', q: 0, b: 0, tab: 'q', exits: 0, inFull: false, warn: false, lastV: 0, asked: 0, answers: {}, chats: BUNDLES.map(() => []), drafts: BUNDLES.map(() => ''), file: BUNDLES.map(() => 0) });
 let S = fresh();
 // 새로고침·탭 전환으로 답이 사라지지 않도록 세션에 저장해 둔다
-const SAVE_KEY = 'ai-exam-mock-v7';
+const SAVE_KEY = 'ai-exam-mock-v8';
 // 저장된 값을 검사해 정리한 상태를 돌려준다. 쓸 수 없으면 null(새로 시작).
 // 손상되거나 손으로 고친 값 때문에 화면이 깨지지 않게 하려는 것일 뿐 부정행위 방지는 아니다. 응시자는 여전히 자기 상태를 고칠 수 있다.
 function restore(v) {
