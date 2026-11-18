@@ -1,6 +1,6 @@
 // 실행: node check.mjs  (키 없이 돌아가는 요청 검사 확인)
 import assert from 'node:assert';
-import handler, { validate, rateLimit, MAX_INPUT_TOKENS } from './api/chat.js';
+import handler, { validate, rateLimit, toInput, replyText, MAX_INPUT_TOKENS } from './api/chat.js';
 
 const u = (content) => ({ role: 'user', content });
 assert.deepEqual(validate({ messages: [u('안녕')] }).messages, [u('안녕')]);
@@ -25,6 +25,24 @@ assert.ok(withBlock({ type: 'image', source: { type: 'base64', media_type: 'imag
 assert.ok(withBlock({ type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'not base64!' } }), 'base64 아님 거부');
 assert.ok(withBlock({ type: 'tool_result', content: 'x' }), '다른 블록 종류 거부');
 assert.ok(withBlock({ ...img, source: { ...img.source, data: 'A'.repeat(3_500_001) } }), '첨부 크기 상한');
+
+// OpenAI 입력으로 변환
+assert.deepEqual(toInput(mixed.messages)[0].content, [
+  { type: 'input_file', filename: 'attachment.pdf', file_data: 'data:application/pdf;base64,AAAA' },
+  { type: 'input_image', image_url: 'data:image/png;base64,AAAA', detail: 'auto' },
+  { type: 'input_text', text: '질문' },
+], '블록을 OpenAI 입력 파트로 변환');
+assert.deepEqual(toInput([u('안녕')]), [u('안녕')], '문자열 내용은 그대로');
+
+// 모델 응답 정리: 정상 / 잘림 / 거절
+const out = (status, content, reason) => ({ status, incomplete_details: reason ? { reason } : null, output: [{ type: 'reasoning' }, { type: 'message', content }] });
+const said = (text) => [{ type: 'output_text', text }];
+assert.equal(replyText(out('completed', said('**답**입니다'))), '답입니다', '굵게 표시 제거');
+assert.ok(replyText(out('completed', [])).includes('비어'), '빈 답 안내');
+assert.ok(replyText(out('incomplete', said('앞부분'), 'max_output_tokens')).startsWith('앞부분\n\n(답변이 길어'), '잘린 답에 안내 덧붙임');
+assert.ok(replyText(out('incomplete', [], 'max_output_tokens')).includes('끝까지 만들지 못했습니다'), '글자 없이 잘림');
+assert.ok(replyText(out('completed', [{ type: 'refusal', refusal: 'no' }])).includes('답할 수 없습니다'), '거절');
+assert.ok(replyText(out('incomplete', said('x'), 'content_filter')).includes('답할 수 없습니다'), '필터에 걸림');
 
 // 핸들러: 메서드 → Origin → 키 → 본문 순서로 거른다. 모델은 부르지 않는다.
 const call = async (req) => {

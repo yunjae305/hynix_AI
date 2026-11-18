@@ -148,15 +148,17 @@ export function toInput(messages) {
 }
 
 const REFUSED = '이 요청에는 답할 수 없습니다. 질문을 바꿔서 다시 시도해 주세요.';
+const NO_REPLY = 'AI 응답을 받지 못했습니다. 다시 시도해 주세요.';
 
 // 모델 답에서 글자만 모은다. 답변 길이 상한(추론 포함)에 걸려 잘렸으면 그렇다고 알린다.
-function replyText(response) {
+// status가 completed 또는 incomplete인 응답만 받는다(그 밖은 ask가 먼저 거른다).
+export function replyText(response) {
   const parts = response.output.flatMap((o) => (o.type === 'message' ? o.content : []));
-  const cut = response.status === 'incomplete' ? response.incomplete_details?.reason : null;
-  if (cut === 'content_filter' || parts.some((p) => p.type === 'refusal')) return REFUSED;
+  const cut = response.status === 'incomplete';
+  if ((cut && response.incomplete_details?.reason === 'content_filter') || parts.some((p) => p.type === 'refusal')) return REFUSED;
   // 채팅창은 일반 글자만 보여주므로, 지시를 어기고 섞여 나온 굵게 표시(**)는 지운다
   const text = parts.filter((p) => p.type === 'output_text').map((p) => p.text).join('').replace(/\*\*/g, '').trim();
-  if (cut !== 'max_output_tokens') return text || '답변이 비어 있습니다. 다시 시도해 주세요.';
+  if (!cut) return text || '답변이 비어 있습니다. 다시 시도해 주세요.';
   if (!text) return '답변이 길어져 끝까지 만들지 못했습니다. 질문 범위를 좁혀서 다시 물어봐 주세요.';
   return `${text}\n\n(답변이 길어 여기서 끊겼습니다. 더 필요하면 질문을 좁혀서 다시 물어봐 주세요.)`;
 }
@@ -180,14 +182,20 @@ async function ask(res, messages) {
       input,
       store: false, // 응시자 질문을 OpenAI 쪽에 보관하지 않는다
     });
+    // HTTP 200으로 왔어도 모델 쪽에서 실패(failed·cancelled)한 응답은 답으로 내보내지 않는다
+    if (response.status !== 'completed' && response.status !== 'incomplete') {
+      console.error('OpenAI response not completed', response.status, response.error?.code, response.error?.message);
+      return res.status(502).json({ error: NO_REPLY });
+    }
     return res.status(200).json({ reply: replyText(response), used });
   } catch (err) {
-    if (err instanceof OpenAI.RateLimitError) {
+    // 크레딧 소진(insufficient_quota)도 429로 오지만 기다려서 풀리는 문제가 아니므로 아래에서 로그를 남긴다
+    if (err instanceof OpenAI.RateLimitError && err.code !== 'insufficient_quota') {
       return res.status(429).json({ error: '요청이 많습니다. 잠시 후 다시 시도해 주세요.' });
     }
     if (err instanceof OpenAI.APIError) {
-      console.error('OpenAI API error', err.status, err.message);
-      return res.status(502).json({ error: 'AI 응답을 받지 못했습니다. 다시 시도해 주세요.' });
+      console.error('OpenAI API error', err.status, err.code, err.message);
+      return res.status(502).json({ error: NO_REPLY });
     }
     console.error(err);
     return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
