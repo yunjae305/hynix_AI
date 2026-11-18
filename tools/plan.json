@@ -1,0 +1,866 @@
+{
+ "rules": {
+  "limit": 13000,
+  "blockMargin": 800,
+  "stepMargin": 1500,
+  "maxTotalSteps": 45,
+  "minSteps": 2,
+  "maxSteps": 3,
+  "maxCarry": 20
+ },
+ "questions": [
+  {
+   "id": "1-1",
+   "needs": [
+    [
+     "customers.csv"
+    ],
+    [
+     "cs_tickets.xlsx"
+    ]
+   ],
+   "path": [
+    {
+     "files": [
+      "customers.csv"
+     ],
+     "ask": "customers.csv에서 total_spend_12m이 5000000 이상인 고객의 customer_id를 모두 쉼표로만 나열해 줘.",
+     "carry": [
+      "C-1021",
+      "C-1042",
+      "C-1050",
+      "C-1071",
+      "C-1098",
+      "C-1106",
+      "C-1152",
+      "C-1199",
+      "C-1208",
+      "C-1271"
+     ],
+     "tokens": 8555
+    },
+    {
+     "files": [
+      "cs_tickets.xlsx",
+      "ai_vip_list.md"
+     ],
+     "ask": "VIP 고객 customer_id: {{prev}}\n\n{{question}}",
+     "tokens": 8287
+    }
+   ],
+   "bypass": [
+    {
+     "files": [
+      "cs_tickets.xlsx",
+      "ai_vip_list.md",
+      "refund_policy.md"
+     ],
+     "text": "ai_vip_list.md의 4건 원문을 cs_tickets.xlsx에서 찾아 각각 실제로 교환 요청인지 알려 줘. 그리고 그중 VIP 고객이 보냈을 것 같은 티켓 하나를 골라 줘."
+    },
+    {
+     "files": [
+      "customers.csv",
+      "ai_vip_list.md",
+      "refund_policy.md"
+     ],
+     "text": "ai_vip_list.md의 4건 가운데 고객이 VIP(정책 기준)인 티켓은? 그중 교환 요청일 것 같은 하나를 골라 줘."
+    }
+   ],
+   "pattern": "T-\\d{4}"
+  },
+  {
+   "id": "1-2",
+   "needs": [
+    [
+     "customers.csv"
+    ],
+    [
+     "cs_tickets.xlsx"
+    ]
+   ],
+   "path": [
+    {
+     "files": [
+      "customers.csv"
+     ],
+     "ask": "customers.csv에서 total_spend_12m이 5000000 이상인 고객의 customer_id를 모두 쉼표로만 나열해 줘.",
+     "carry": [
+      "C-1021",
+      "C-1042",
+      "C-1050",
+      "C-1071",
+      "C-1098",
+      "C-1106",
+      "C-1152",
+      "C-1199",
+      "C-1208",
+      "C-1271"
+     ],
+     "tokens": 8555
+    },
+    {
+     "files": [
+      "cs_tickets.xlsx",
+      "refund_policy.md"
+     ],
+     "ask": "VIP 고객 customer_id: {{prev}}\n\n{{question}}",
+     "tokens": 8327
+    }
+   ],
+   "bypass": [
+    {
+     "files": [
+      "cs_tickets.xlsx",
+      "refund_policy.md"
+     ],
+     "text": "일본어로 쓰인 제품 불량 환불 요청 티켓을 모두 찾아 ticket_id와 customer_id를 알려 줘."
+    }
+   ],
+   "pattern": "T-\\d{4}"
+  },
+  {
+   "id": "1-3",
+   "needs": [
+    [
+     "customers.csv"
+    ],
+    [
+     "cs_tickets.xlsx"
+    ],
+    [
+     "orders.csv"
+    ]
+   ],
+   "path": [
+    {
+     "files": [
+      "customers.csv"
+     ],
+     "ask": "customers.csv에서 total_spend_12m이 5000000 이상인 고객의 customer_id를 모두 쉼표로만 나열해 줘.",
+     "carry": [
+      "C-1021",
+      "C-1042",
+      "C-1050",
+      "C-1071",
+      "C-1098",
+      "C-1106",
+      "C-1152",
+      "C-1199",
+      "C-1208",
+      "C-1271"
+     ],
+     "tokens": 8555
+    },
+    {
+     "files": [
+      "cs_tickets.xlsx",
+      "refund_policy.md"
+     ],
+     "ask": "VIP 고객 customer_id: {{prev}}\n이 고객들이 보낸 티켓 가운데 '단순 변심 환불' 요청인 것의 order_id를 모두 쉼표로만 나열해 줘. (제품 불량 환불·교환·배송·결제·사용법 문의는 빼고)",
+     "carry": [
+      "O-70262",
+      "O-70871",
+      "O-71053",
+      "O-71438",
+      "O-71564",
+      "O-71669"
+     ],
+     "tokens": 8346
+    },
+    {
+     "files": [
+      "orders.csv",
+      "refund_policy.md"
+     ],
+     "ask": "VIP 고객이 보낸 단순 변심 환불 요청의 order_id: {{prev}}\n\n{{question}}",
+     "tokens": 10511
+    }
+   ],
+   "bypass": [
+    {
+     "files": [
+      "orders.csv",
+      "refund_policy.md"
+     ],
+     "text": "orders.csv에서 VIP 기준(배송 완료 후 30일 이내, 미개봉)으로 단순 변심 환불이 가능한 주문의 환불액 합계를 계산해 줘."
+    },
+    {
+     "files": [
+      "cs_tickets.xlsx",
+      "refund_policy.md",
+      "ai_vip_list.md"
+     ],
+     "text": "VIP 고객이 보낸 단순 변심 환불 요청 중 환불 가능한 건의 환불액 합계를 추정해 줘."
+    }
+   ],
+   "pattern": "\\d{1,3}(,\\d{3})+|\\d{5,}"
+  },
+  {
+   "id": "2-1",
+   "needs": [
+    [
+     "test_results.csv"
+    ],
+    [
+     "reviews.csv"
+    ]
+   ],
+   "path": [
+    {
+     "files": [
+      "test_results.csv",
+      "ai_failure_note.md"
+     ],
+     "ask": "ai_failure_note.md에 적힌 사례 4개의 v2 채점 결과(format_ok, label_correct)가 test_results.csv의 v2 결과와 맞는지 확인해서, 맞는 사례의 case 번호만 쉼표로 적어 줘.",
+     "carry": [
+      "297",
+      "98"
+     ],
+     "tokens": 5271
+    },
+    {
+     "files": [
+      "reviews.csv",
+      "ai_failure_note.md"
+     ],
+     "ask": "v2 채점 결과가 맞는 사례: {{prev}}\n\n{{question}}",
+     "tokens": 9191
+    }
+   ],
+   "bypass": [
+    {
+     "files": [
+      "reviews.csv",
+      "ai_failure_note.md",
+      "prompt_v2.txt"
+     ],
+     "text": "메모의 4개 사례 중 리뷰 특징이 실제 원문과 맞는 사례는 무엇이고, 그중 v2 채점 결과까지 맞을 것 같은 사례 하나를 골라 줘."
+    }
+   ],
+   "pattern": "case \\d+"
+  },
+  {
+   "id": "2-2",
+   "needs": [
+    [
+     "test_results.csv"
+    ],
+    [
+     "reviews.csv"
+    ]
+   ],
+   "path": [
+    {
+     "files": [
+      "test_results.csv"
+     ],
+     "ask": "test_results.csv에서 prompt_version이 v2이고 format_ok=Y, label_correct=N인 case_id를 모두 쉼표로만 나열해 줘.",
+     "carry": [
+      "78",
+      "102",
+      "111",
+      "113",
+      "119",
+      "140",
+      "153",
+      "185",
+      "198",
+      "223",
+      "319",
+      "336",
+      "373",
+      "419"
+     ],
+     "tokens": 5102
+    },
+    {
+     "files": [
+      "reviews.csv"
+     ],
+     "ask": "v2에서 format_ok=Y, label_correct=N인 case_id: {{prev}}\n\n{{question}}",
+     "tokens": 9064
+    }
+   ],
+   "bypass": [
+    {
+     "files": [
+      "reviews.csv",
+      "prompt_v2.txt"
+     ],
+     "text": "reviews.csv에서 환불이 늦어지는 것을 불만으로 말한 리뷰의 case_id를 모두 알려 줘. 그중 칭찬도 함께 있는 리뷰는?"
+    }
+   ],
+   "pattern": "\\b\\d{1,3}\\b"
+  },
+  {
+   "id": "2-3",
+   "needs": [
+    [
+     "test_results.csv"
+    ],
+    [
+     "reviews.csv"
+    ],
+    [
+     "review_meta.csv"
+    ]
+   ],
+   "path": [
+    {
+     "files": [
+      "test_results.csv"
+     ],
+     "ask": "test_results.csv에서 v1의 label_correct가 Y이면서 v2의 label_correct가 N인 case_id를 모두 쉼표로만 나열해 줘.",
+     "carry": [
+      "54",
+      "78",
+      "99",
+      "102",
+      "113",
+      "119",
+      "166",
+      "185",
+      "198",
+      "292",
+      "319",
+      "325",
+      "373"
+     ],
+     "tokens": 5104
+    },
+    {
+     "files": [
+      "reviews.csv"
+     ],
+     "ask": "다음 case_id 가운데 일본어로 쓰인 리뷰의 case_id만 적어 줘: {{prev}}",
+     "carry": [
+      "54"
+     ],
+     "tokens": 9011
+    },
+    {
+     "files": [
+      "review_meta.csv"
+     ],
+     "ask": "일본어 리뷰의 case_id: {{prev}}\n\n{{question}}",
+     "tokens": 8083
+    }
+   ],
+   "bypass": [
+    {
+     "files": [
+      "test_results.csv",
+      "prompt_v1.txt",
+      "prompt_v2.txt"
+     ],
+     "text": "v1에서는 라벨이 맞고 v2에서 틀린 case_id를 알려 줘. 그중 일본어 리뷰일 것 같은 case와 그 리뷰가 달린 상품의 product_code를 추정해 줘."
+    },
+    {
+     "files": [
+      "reviews.csv"
+     ],
+     "text": "일본어로 쓰인 리뷰의 case_id를 모두 알려 줘. 그중 v1은 맞고 v2는 틀렸을 것 같은 리뷰는?"
+    }
+   ],
+   "pattern": "P-\\d{4}"
+  },
+  {
+   "id": "3-1",
+   "needs": [
+    [
+     "retrieved_chunks.json"
+    ],
+    [
+     "doc_registry.csv"
+    ]
+   ],
+   "path": [
+    {
+     "files": [
+      "answer_draft.md",
+      "retrieved_chunks.json"
+     ],
+     "ask": "answer_draft.md의 문장 ①~④가 각각 인용한 청크의 내용과 일치하는지 확인해서, 일치하는 문장의 번호와 그 청크의 doc_id만 적어 줘.",
+     "carry": [
+      "HR-7822",
+      "HR-3993",
+      "HR-4733"
+     ],
+     "tokens": 6234
+    },
+    {
+     "files": [
+      "answer_draft.md",
+      "doc_registry.csv"
+     ],
+     "ask": "인용한 청크와 내용이 일치하는 문장과 그 청크의 doc_id: {{prev}}\n\n{{question}}",
+     "tokens": 8997
+    }
+   ],
+   "bypass": [
+    {
+     "files": [
+      "answer_draft.md",
+      "retrieved_chunks.json",
+      "user_question.txt"
+     ],
+     "text": "초안 ①~④ 중 인용한 청크와 내용이 일치하는 문장을 알려 주고, 그중 현행 규정일 가능성이 높은 문장 하나를 골라 줘."
+    }
+   ],
+   "pattern": "[①②③④]"
+  },
+  {
+   "id": "3-2",
+   "needs": [
+    [
+     "retrieved_chunks.json"
+    ],
+    [
+     "doc_registry.csv"
+    ]
+   ],
+   "path": [
+    {
+     "files": [
+      "retrieved_chunks.json"
+     ],
+     "ask": "retrieved_chunks.json에서 score가 0.75 이상인 청크의 doc_id를 중복 없이 쉼표로만 나열해 줘.",
+     "carry": [
+      "OPS-2565",
+      "HR-4530",
+      "HR-2590",
+      "HR-4236",
+      "HR-6830",
+      "FIN-6931"
+     ],
+     "tokens": 6100
+    },
+    {
+     "files": [
+      "doc_registry.csv"
+     ],
+     "ask": "score 0.75 이상 청크의 doc_id: {{prev}}\n\n{{question}}",
+     "tokens": 8818
+    }
+   ],
+   "bypass": [
+    {
+     "files": [
+      "doc_registry.csv",
+      "answer_draft.md",
+      "user_question.txt"
+     ],
+     "text": "doc_registry.csv에서 폐기 문서의 replaced_by가 두 단계 이상 이어지는 사슬을 모두 찾아, 끝의 현행 문서 doc_id를 알려 줘. 그중 연차 이월 규정과 관련 있어 보이는 하나를 골라 줘."
+    },
+    {
+     "files": [
+      "retrieved_chunks.json",
+      "answer_draft.md",
+      "user_question.txt"
+     ],
+     "text": "score 0.75 이상 청크 가운데 옛 규정으로 보이는 문서와, 그 문서를 대체했을 현행 문서의 doc_id를 추정해 줘."
+    }
+   ],
+   "pattern": "[A-Z]{2,3}-\\d{4}"
+  },
+  {
+   "id": "3-3",
+   "needs": [
+    [
+     "retrieved_chunks.json"
+    ],
+    [
+     "doc_registry.csv"
+    ]
+   ],
+   "path": [
+    {
+     "files": [
+      "retrieved_chunks.json"
+     ],
+     "ask": "retrieved_chunks.json에서 chunk 16의 doc_id만 적어 줘.",
+     "carry": [
+      "HR-5577"
+     ],
+     "tokens": 6084
+    },
+    {
+     "files": [
+      "doc_registry.csv"
+     ],
+     "ask": "{{prev}} 문서에서 replaced_by를 status가 '현행'인 문서가 나올 때까지 따라가서, 그 현행 문서의 doc_id만 적어 줘.",
+     "carry": [
+      "HR-9572"
+     ],
+     "tokens": 8740
+    },
+    {
+     "files": [
+      "retrieved_chunks.json"
+     ],
+     "ask": "대체 관계를 따라가 나온 현행 문서의 doc_id: {{prev}}\n\n{{question}}",
+     "tokens": 6175
+    }
+   ],
+   "bypass": [
+    {
+     "files": [
+      "retrieved_chunks.json",
+      "answer_draft.md",
+      "user_question.txt"
+     ],
+     "text": "연차 신청서 양식 번호가 적힌 청크를 모두 찾아 doc_id와 양식 번호를 알려 줘. chunk 16의 문서를 대체한 최신 문서의 양식 번호는 무엇일 것 같아?"
+    }
+   ],
+   "pattern": "HR-F-\\d+"
+  },
+  {
+   "id": "4-1",
+   "needs": [
+    [
+     "meeting_0603.txt"
+    ],
+    [
+     "meeting_0610.txt"
+    ],
+    [
+     "meeting_0617.txt"
+    ]
+   ],
+   "path": [
+    {
+     "files": [
+      "meeting_0603.txt",
+      "ai_summary.md"
+     ],
+     "ask": "ai_summary.md의 1~4번 항목에 적힌 담당자가 meeting_0603.txt에서 그 업무를 맡은 사람과 같은지 확인해서, 담당자가 맞는 항목 번호만 적어 줘.",
+     "carry": [
+      "1번",
+      "2번",
+      "3번"
+     ],
+     "tokens": 7448
+    },
+    {
+     "files": [
+      "meeting_0610.txt",
+      "ai_summary.md"
+     ],
+     "ask": "담당자가 회의록과 맞는 항목: {{prev}}\n이 항목들 가운데 '6월 10일 회의에서 바뀐 기한'이 meeting_0610.txt와 맞는 항목 번호만 적어 줘.",
+     "carry": [
+      "2번",
+      "3번"
+     ],
+     "tokens": 7440
+    },
+    {
+     "files": [
+      "meeting_0617.txt",
+      "ai_summary.md"
+     ],
+     "ask": "담당자와 6월 10일에 바뀐 기한이 회의록과 맞는 항목: {{prev}}\n\n{{question}}",
+     "tokens": 7496
+    }
+   ],
+   "bypass": [
+    {
+     "files": [
+      "meeting_0610.txt",
+      "ai_summary.md"
+     ],
+     "text": "ai_summary.md의 1~4번 항목 가운데 6월 10일 회의에서 바뀐 기한이 회의록과 맞는 항목을 알려 줘. 그중 담당자와 완료 보고까지 맞을 것 같은 항목 하나를 골라 줘."
+    },
+    {
+     "files": [
+      "meeting_0617.txt",
+      "ai_summary.md"
+     ],
+     "text": "ai_summary.md의 각 항목에 적힌 6월 17일 완료 보고 여부가 회의록과 맞는지 알려 주고, 담당자와 기한까지 맞을 것 같은 항목 하나를 골라 줘."
+    }
+   ],
+   "pattern": "[1-4]번"
+  },
+  {
+   "id": "4-2",
+   "needs": [
+    [
+     "meeting_0610.txt"
+    ],
+    [
+     "meeting_0617.txt"
+    ]
+   ],
+   "path": [
+    {
+     "files": [
+      "meeting_0610.txt"
+     ],
+     "ask": "meeting_0610.txt에서 이 회의에서 새로 맡긴 업무(이전 회의에서 정한 업무의 기한 변경은 빼고)의 이름과 기한을 모두 적어 줘.",
+     "carry": [
+      "partner FAQ page (June 11)",
+      "billing alert rules (June 12)",
+      "beta feedback survey (June 13)",
+      "log retention script (June 14)",
+      "release notes draft (June 15)",
+      "onboarding email copy (June 16)"
+     ],
+     "tokens": 7216
+    },
+    {
+     "files": [
+      "meeting_0617.txt"
+     ],
+     "ask": "6월 10일 회의에서 새로 맡긴 업무와 기한: {{prev}}\n\n{{question}}",
+     "tokens": 7281
+    }
+   ],
+   "bypass": [
+    {
+     "files": [
+      "meeting_0617.txt",
+      "ai_summary.md"
+     ],
+     "text": "6월 17일 회의에서 완료 보고가 나온 업무를 모두 적어 줘. 이 회의록만으로 6월 10일에 새로 맡겼는데 완료 보고가 없는 업무와 그 기한을 추정할 수 있을까?"
+    },
+    {
+     "files": [
+      "meeting_0610.txt",
+      "ai_summary.md"
+     ],
+     "text": "6월 10일 회의에서 새로 맡긴 업무 가운데 6월 17일까지 끝나지 않았을 것 같은 업무의 기한 하나를 골라 줘."
+    }
+   ],
+   "pattern": "June \\d+|6월 \\d+일|6/\\d+"
+  },
+  {
+   "id": "4-3",
+   "needs": [
+    [
+     "meeting_0603.txt"
+    ],
+    [
+     "meeting_0610.txt"
+    ],
+    [
+     "meeting_0617.txt"
+    ]
+   ],
+   "path": [
+    {
+     "files": [
+      "meeting_0603.txt"
+     ],
+     "ask": "meeting_0603.txt에서 기한과 함께 맡긴 업무의 이름을 모두 쉼표로만 적어 줘.",
+     "carry": [
+      "response cache design doc",
+      "error message drafts",
+      "QA checklist",
+      "usage dashboard",
+      "launch announcement plan",
+      "support macro set",
+      "staging server upgrade",
+      "rate limit policy draft"
+     ],
+     "tokens": 7222
+    },
+    {
+     "files": [
+      "meeting_0610.txt"
+     ],
+     "ask": "다음 업무 가운데 meeting_0610.txt에서 완료 보고(is complete)가 있는 업무를 빼고, 나머지 업무 이름만 쉼표로 적어 줘: {{prev}}",
+     "carry": [
+      "error message drafts",
+      "QA checklist",
+      "usage dashboard",
+      "support macro set",
+      "staging server upgrade",
+      "rate limit policy draft"
+     ],
+     "tokens": 7240
+    },
+    {
+     "files": [
+      "meeting_0617.txt"
+     ],
+     "ask": "6월 10일 회의까지 완료 보고가 없던 6월 3일 업무: {{prev}}\n\n{{question}}",
+     "tokens": 7267
+    }
+   ],
+   "bypass": [
+    {
+     "files": [
+      "meeting_0617.txt",
+      "ai_summary.md"
+     ],
+     "text": "6월 17일 회의에서 기한이 정해진 업무와 기한을 모두 적어 줘. 그중 6월 3일부터 있던 업무일 것 같은 하나를 골라 줘."
+    },
+    {
+     "files": [
+      "meeting_0603.txt",
+      "ai_summary.md"
+     ],
+     "text": "6월 3일 회의에서 맡긴 업무 중 ai_summary.md에 없는 업무를 적어 줘. 그중 6월 17일까지 끝나지 않았을 것 같은 업무와 새 기한을 추정해 줘."
+    }
+   ],
+   "pattern": "June \\d+|6월 \\d+일|6/\\d+"
+  },
+  {
+   "id": "5-1",
+   "needs": [
+    [
+     "employees.csv"
+    ],
+    [
+     "ai_requests.csv"
+    ],
+    [
+     "audit_flags.png"
+    ],
+    [
+     "ai_usage_policy.pdf"
+    ]
+   ],
+   "path": [
+    {
+     "files": [
+      "audit_flags.png",
+      "employees.csv"
+     ],
+     "ask": "audit_flags.png의 1~4번 행에 있는 employee_id 가운데 employees.csv에서 부서가 '법무'인 사람의 행 번호와 req_id만 적어 줘.",
+     "carry": [
+      "1번 행 R-5228",
+      "2번 행 R-5156"
+     ],
+     "tokens": 10394
+    },
+    {
+     "files": [
+      "ai_usage_policy.pdf",
+      "ai_requests.csv",
+      "audit_flags.png"
+     ],
+     "ask": "법무 부서 직원이 보낸 행: {{prev}}\n\n{{question}}",
+     "tokens": 9480
+    }
+   ],
+   "bypass": [
+    {
+     "files": [
+      "ai_usage_policy.pdf",
+      "ai_requests.csv",
+      "audit_flags.png"
+     ],
+     "text": "audit_flags.png의 4개 요청이 각각 정책 위반인지 원문으로 판정해 줘. 그중 법무 직원이 보냈을 것 같은 위반 하나를 골라 줘."
+    },
+    {
+     "files": [
+      "ai_usage_policy.pdf",
+      "employees.csv",
+      "audit_flags.png"
+     ],
+     "text": "audit_flags.png의 4개 행 중 법무 부서 직원의 행을 알려 주고, 그중 정책 위반일 것 같은 하나를 골라 줘."
+    }
+   ],
+   "pattern": "[1-4]번"
+  },
+  {
+   "id": "5-2",
+   "needs": [
+    [
+     "ai_requests.csv"
+    ],
+    [
+     "employees.csv"
+    ],
+    [
+     "ai_usage_policy.pdf"
+    ]
+   ],
+   "path": [
+    {
+     "files": [
+      "ai_usage_policy.pdf",
+      "ai_requests.csv"
+     ],
+     "ask": "2026년 6월 요청 가운데 정책 제2조(기밀 정보)를 위반한 요청을 보낸 직원의 employee_id를 모두 쉼표로만 적어 줘.",
+     "carry": [
+      "E-3191",
+      "E-3120",
+      "E-3134",
+      "E-3010",
+      "E-3089",
+      "E-3007"
+     ],
+     "tokens": 8766
+    },
+    {
+     "files": [
+      "employees.csv"
+     ],
+     "ask": "2026년 6월에 제2조를 위반한 직원 employee_id: {{prev}}\n\n{{question}}",
+     "tokens": 9799
+    }
+   ],
+   "bypass": [
+    {
+     "files": [
+      "employees.csv",
+      "ai_usage_policy.pdf",
+      "audit_flags.png"
+     ],
+     "text": "직급이 차장인 직원의 이름과 employee_id를 모두 알려 줘. 그중 6월에 기밀 정보를 입력했을 것 같은 사람은?"
+    }
+   ],
+   "pattern": "[가-힣]{3}"
+  },
+  {
+   "id": "5-3",
+   "needs": [
+    [
+     "employees.csv"
+    ],
+    [
+     "ai_requests.csv"
+    ],
+    [
+     "ai_usage_policy.pdf"
+    ]
+   ],
+   "path": [
+    {
+     "files": [
+      "employees.csv"
+     ],
+     "ask": "employees.csv에서 부서가 '인사'인 직원의 employee_id를 모두 쉼표로만 적어 줘.",
+     "carry": [
+      "E-3011",
+      "E-3239",
+      "E-3251",
+      "E-3322",
+      "E-3377"
+     ],
+     "tokens": 9739
+    },
+    {
+     "files": [
+      "ai_usage_policy.pdf",
+      "ai_requests.csv"
+     ],
+     "ask": "인사 부서 직원 employee_id: {{prev}}\n\n{{question}}",
+     "tokens": 8803
+    }
+   ],
+   "bypass": [
+    {
+     "files": [
+      "ai_usage_policy.pdf",
+      "ai_requests.csv",
+      "audit_flags.png"
+     ],
+     "text": "지원자·직원 평가 자료를 넣은 요청을 모두 찾아 req_id, 날짜, employee_id를 알려 줘. 그중 인사 부서가 보낸 것으로 보이는 가장 늦은 위반은?"
+    }
+   ],
+   "pattern": "R-\\d{4}"
+  }
+ ]
+}

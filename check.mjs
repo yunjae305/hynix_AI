@@ -116,9 +116,10 @@ console.log('api ok');
 // 문제 데이터 형식 검사
 import fs from 'node:fs';
 const BUNDLES = new Function(fs.readFileSync(new URL('./data.js', import.meta.url), 'utf8') + '; return BUNDLES')();
-assert.equal(BUNDLES.length, 5, '묶음 5개');
+const normA = (s) => String(s ?? '').normalize('NFKC').toLowerCase().replace(/\s+/g, '');
+assert.equal(BUNDLES.length, 5, '상황 5개');
 for (const [i, B] of BUNDLES.entries()) {
-  const at = `묶음 ${i + 1}`;
+  const at = `상황 ${i + 1}`;
   assert.ok(B.title && B.scenario && B.files.length, `${at}: 제목·상황 설명·파일`);
   assert.equal(new Set(B.files.map((f) => f.name)).size, B.files.length, `${at}: 파일명 중복`);
   for (const f of B.files) {
@@ -134,8 +135,74 @@ for (const [i, B] of BUNDLES.entries()) {
     assert.ok(q.text && q.why, `${at}: 문제·해설`);
     if (q.type === 'mc') assert.ok(q.options.length === 4 && q.options[q.answer] !== undefined, `${at}: 보기 4개·정답 번호`);
     else assert.ok(q.answers.length && q.answers.every((a) => String(a).trim()), `${at}: 허용 답`);
-    // 문제에 언급한 파일은 그 묶음에 있어야 한다
+    // 문제에 언급한 파일은 그 상황에 있어야 한다
     for (const m of q.text.match(/[\w.-]+\.(csv|md|txt|json|xlsx|pdf|png)/g) || []) assert.ok(B.files.some((f) => f.name === m), `${at}: 없는 파일 언급 ${m}`);
+    // 문제는 각자 독립적으로 읽혀야 한다(응시자는 아무 순서로나 푼다)
+    assert.ok(!/앞 문제|이전 문제|위 문제|앞에서 구한|그 현행 문서의 청크에 적힌|\d번 문제/.test(q.text), `${at}: 다른 문제를 가리키는 문제 글 (${q.text.slice(0, 30)})`);
+    if (q.type === 'short') assert.ok(q.answers.some((a) => normA(q.why).includes(normA(a))), `${at}: 해설에 정답이 있어야 한다 (${q.answers[0]})`);
+  }
+  for (const s of [B.title, B.scenario, ...B.questions.flatMap((q) => [q.text, q.why, ...(q.options ?? [])])]) assert.ok(!s.includes('묶음'), `${at}: 화면 글에 '묶음' 금지`);
+  // 숫자·원문자 뒤 조사: 읽는 소리의 받침으로 고른다(0 영·1 일·3 삼·6 육·7 칠·8 팔은 받침 있음)
+  const shownText = [B.scenario, ...B.questions.flatMap((q) => [q.text, q.why, ...(q.options ?? [])]), ...B.files.filter((f) => f.body && f.tokens < 2000).map((f) => f.body)];
+  const PAIRS = { 은: '는', 이: '가', 을: '를', 과: '와' };
+  for (const s of shownText) {
+    for (const [, d, j] of s.matchAll(/([0-9①②③④])(은|는|이|가|을|를|과|와|이다|다)(?=[\s.,)!?:]|$)/g)) {
+      const digit = { '①': '1', '②': '2', '③': '3', '④': '4' }[d] ?? d, has = '013678'.includes(digit);
+      const ok = j === '이다' ? has : j === '다' ? !has : PAIRS[j] ? has : !has;
+      assert.ok(ok, `${at}: 조사 불일치 "${d}${j}" (${s.slice(Math.max(0, s.indexOf(d + j) - 15), s.indexOf(d + j) + 5)})`);
+    }
   }
 }
 console.log('data ok');
+
+// 문제 구조 검사: tools/plan.json(생성기가 만든 문제별 정보 조각·의도 경로)
+const PLAN = JSON.parse(fs.readFileSync(new URL('./tools/plan.json', import.meta.url), 'utf8'));
+const RULES = PLAN.rules;
+assert.equal(RULES.limit, MAX_INPUT_TOKENS, 'plan.json 한도 = 서버 한도');
+assert.equal(PLAN.questions.length, 15, 'plan.json 문제 15개');
+let totalSteps = 0;
+for (const [bi, B] of BUNDLES.entries()) {
+  const tok = new Map(B.files.map((f) => [f.name, f.tokens]));
+  const plans = B.questions.map((_, qi) => PLAN.questions.find((p) => p.id === `${bi + 1}-${qi + 1}`));
+  for (const [qi, q] of B.questions.entries()) {
+    const p = plans[qi], at = `문제 ${bi + 1}-${qi + 1}`;
+    assert.ok(p, `${at}: plan.json에 없음`);
+    const names = [...p.needs.flat(), ...p.path.flatMap((s) => s.files), ...p.bypass.flatMap((b) => b.files)];
+    for (const n of names) assert.ok(tok.has(n), `${at}: 없는 파일 ${n}`);
+    // ① 정보 조각을 모두 담는 파일 조합은 한도보다 blockMargin 이상 크다(= 한도 안의 어떤 조합으로도 한 번에 못 푼다)
+    const files = B.files.map((f) => f.name);
+    for (let mask = 1; mask < 1 << files.length; mask++) {
+      const set = files.filter((_, k) => mask & (1 << k));
+      if (!p.needs.every((alt) => alt.some((n) => set.includes(n)))) continue;
+      const sum = set.reduce((s, n) => s + tok.get(n), 0);
+      assert.ok(sum >= RULES.limit + RULES.blockMargin, `${at}: 정보를 다 담는 조합이 한도 여유 안에 들어간다 (${set.join('+')} = ${sum})`);
+    }
+    // ② 의도 경로: 단계 수, 각 단계의 실제 크기 여유, 옮겨 적는 양, 경로가 정보 조각을 모두 지나감
+    assert.ok(p.path.length >= RULES.minSteps && p.path.length <= RULES.maxSteps, `${at}: 단계 수 ${p.path.length}`);
+    totalSteps += p.path.length;
+    p.path.forEach((s, k) => {
+      assert.ok(s.tokens > 0 && s.tokens <= RULES.limit - RULES.stepMargin, `${at}: ${k + 1}단계 ${s.tokens}토큰 > ${RULES.limit - RULES.stepMargin}`);
+      if (k > 0) assert.ok(s.ask.includes('{{prev}}'), `${at}: ${k + 1}단계는 앞 단계 결과를 옮겨 적는다`);
+      if (k < p.path.length - 1) assert.ok(s.carry?.length > 0 && s.carry.length <= RULES.maxCarry, `${at}: ${k + 1}단계 옮겨 적는 값 1~${RULES.maxCarry}개`);
+    });
+    assert.ok(p.path.at(-1).ask.includes('{{question}}'), `${at}: 마지막 단계는 문제 글로 묻는다`);
+    const walked = p.path.flatMap((s) => s.files);
+    assert.ok(p.needs.every((alt) => alt.some((n) => walked.includes(n))), `${at}: 의도 경로가 정보 조각을 모두 지나가야 한다`);
+    assert.ok(p.bypass.length >= 1, `${at}: 우회 질문 1개 이상`);
+  }
+  // ③ 누설: 단답의 정답이 상황 설명·다른 문제 글·보기·작은 파일(2천 토큰 미만)·경로 질문·다른 문제의 중간 결과에 나오면 안 된다
+  const small = B.files.filter((f) => f.body && f.tokens < 2000).map((f) => f.body);
+  for (const [qi, q] of B.questions.entries()) {
+    const keys = q.type === 'short' ? q.answers.map(normA).filter((a) => a.length >= 3) : [normA(q.options[q.answer])];
+    const others = B.questions.filter((_, j) => j !== qi);
+    const shown = [B.scenario, ...others.flatMap((o) => [o.text, ...(o.options ?? [])]), ...PLAN.questions.filter((p) => p.id.startsWith(`${bi + 1}-`)).flatMap((p) => [...p.path.map((s) => s.ask), ...p.bypass.map((b) => b.text)])];
+    if (q.type === 'short') shown.push(q.text, ...small);
+    const carries = plans.filter((_, j) => j !== qi).flatMap((p) => p.path.flatMap((s) => s.carry ?? []));
+    for (const k of keys) {
+      for (const s of shown) assert.ok(!normA(s).includes(k), `문제 ${bi + 1}-${qi + 1}: 정답(${k})이 다른 글에 나온다: ${s.slice(0, 40)}`);
+      for (const c of carries) assert.ok(normA(c) !== k, `문제 ${bi + 1}-${qi + 1}: 정답(${k})이 다른 문제의 중간 결과에 나온다`);
+    }
+  }
+}
+assert.ok(totalSteps <= RULES.maxTotalSteps, `의도 경로 질문 수 합계 ${totalSteps} > ${RULES.maxTotalSteps}`);
+console.log(`plan ok (의도 경로 질문 ${totalSteps}회)`);
