@@ -1,6 +1,6 @@
 // 실행: node check.mjs  (키 없이 돌아가는 요청 검사 확인)
 import assert from 'node:assert';
-import handler, { validate, rateLimit } from './api/chat.js';
+import handler, { validate, rateLimit, MAX_INPUT_TOKENS } from './api/chat.js';
 
 const u = (content) => ({ role: 'user', content });
 assert.deepEqual(validate({ messages: [u('안녕')] }).messages, [u('안녕')]);
@@ -34,7 +34,7 @@ const call = async (req) => {
 };
 const site = { host: 'exam.example', origin: 'https://exam.example' };
 const post = (extra) => ({ method: 'POST', headers: site, body: { messages: [u('a')] }, ...extra });
-delete process.env.ANTHROPIC_API_KEY;
+delete process.env.OPENAI_API_KEY;
 assert.equal((await call({ method: 'GET' })).code, 405);
 assert.equal((await call(post({ headers: { host: site.host } }))).code, 403, 'Origin 없음 거부');
 assert.equal((await call(post({ headers: undefined }))).code, 403, '헤더 없음 거부');
@@ -45,11 +45,11 @@ const behindProxy = { host: 'internal.local', 'x-forwarded-host': site.host };
 assert.equal((await call(post({ headers: { ...behindProxy, origin: site.origin } }))).code, 500, 'x-forwarded-host 일치면 통과');
 assert.equal((await call(post({ headers: { ...behindProxy, origin: 'https://evil.example' } }))).code, 403, '둘 다 불일치면 거부');
 // 가짜 키: 본문 검사에서 끝나므로 API는 부르지 않는다
-process.env.ANTHROPIC_API_KEY = 'fake-key-for-check';
+process.env.OPENAI_API_KEY = 'fake-key-for-check';
 const broken = await call({ method: 'POST', headers: site, get body() { throw new SyntaxError('bad json'); } });
 assert.deepEqual([broken.code, broken.body.error], [400, '메시지 형식이 올바르지 않습니다.'], '깨진 JSON은 400');
 assert.equal((await call(post({ body: {} }))).code, 400, '빈 본문 400');
-delete process.env.ANTHROPIC_API_KEY;
+delete process.env.OPENAI_API_KEY;
 
 // 호출 제한: 1분 10번, 1시간 120번
 const T = 1_000_000_000_000;
@@ -78,9 +78,9 @@ for (const [i, B] of BUNDLES.entries()) {
     assert.ok(f.body?.trim() || ['pdf', 'image'].includes(f.kind), `${at}: 글자 파일·엑셀은 body 필수 (${f.name})`);
     for (const p of [f.url, f.preview].filter(Boolean)) assert.ok(fs.existsSync(new URL('./' + p, import.meta.url)), `${at}: 파일 없음 ${p}`);
     assert.ok(!f.kind || f.url, `${at}: 원본 경로(url) 필수 (${f.name})`);
-    assert.ok(f.tokens > 0 && f.tokens < 20_000, `${at}: 파일 하나는 2만 토큰 안에 들어가야 한다 (${f.name}: ${f.tokens})`);
+    assert.ok(f.tokens > 0 && f.tokens < MAX_INPUT_TOKENS, `${at}: 파일 하나는 한도 안에 들어가야 한다 (${f.name}: ${f.tokens})`);
   }
-  assert.ok(B.files.reduce((s, f) => s + f.tokens, 0) > 20_000, `${at}: 전체 파일 합계는 2만 토큰을 넘어야 한다(한 번에 못 풀게)`);
+  assert.ok(B.files.reduce((s, f) => s + f.tokens, 0) > MAX_INPUT_TOKENS, `${at}: 전체 파일 합계는 한도를 넘어야 한다(한 번에 못 풀게)`);
   assert.deepEqual(B.questions.map((q) => q.type).sort(), ['mc', 'short', 'short'], `${at}: 객관식 1 + 단답형 2`);
   for (const q of B.questions) {
     assert.ok(q.text && q.why, `${at}: 문제·해설`);

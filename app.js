@@ -1,5 +1,5 @@
 const TOTAL = BUNDLES.length * 3;
-const LIMIT = 20000; // 질문 한 번에 보낼 수 있는 토큰(서버 api/chat.js의 MAX_INPUT_TOKENS와 같은 값)
+const LIMIT = 13000; // 질문 한 번에 보낼 수 있는 토큰(서버 api/chat.js의 MAX_INPUT_TOKENS와 같은 값)
 const fmt = (n) => n.toLocaleString('ko-KR');
 
 // ───────── AI 연결 지점. 키는 서버(api/chat.js)에만 있고, 여기서는 대화만 보낸다.
@@ -28,8 +28,8 @@ async function toApi(m, files) {
   }
   return { role: 'user', content: [...blocks, { type: 'text', text: m.text }] };
 }
-// 질문 글의 토큰 어림값. 글자 종류마다 무게를 달리 준다(data.js에 재어 둔 글 파일의 토큰 수에 맞춘 값).
-const TOKEN_WEIGHT = { cjk: 1.5, letter: 0.3, digit: 1, space: 0.3, other: 1 };
+// 질문 글의 토큰 어림값. 글자 종류마다 무게를 달리 준다(한글·영문·숫자·ID 목록 질문 표본을 서버와 같은 방법으로 재서 맞춘 값).
+const TOKEN_WEIGHT = { cjk: 0.75, letter: 0.2, digit: 0.65, space: 0.15, other: 0.9 };
 function guessTokens(text) {
   const n = (re) => (text.match(re) || []).length;
   const cjk = n(/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7a3]/g), letter = n(/[A-Za-z]/g), digit = n(/[0-9]/g), space = n(/\s/g);
@@ -295,7 +295,7 @@ function exam() {
       </div>
       <div class="foot"><button class="btn ghost" id="prev">이전 문제</button><button class="btn" id="next">다음 문제</button></div>
     </div>
-  </div>`, `<span id="stt"></span><span id="pen"></span><span class="sp"></span><span>원샷 · 2만 토큰</span>`);
+  </div>`, `<span id="stt"></span><span id="pen"></span><span class="sp"></span><span>원샷 · 1만 3천 토큰</span>`);
 }
 
 function bindExam() {

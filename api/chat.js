@@ -1,12 +1,14 @@
-// AI 채팅 프록시. API 키는 서버 환경변수 ANTHROPIC_API_KEY 에만 둔다.
+// AI 채팅 프록시. API 키는 서버 환경변수 OPENAI_API_KEY 에만 둔다.
 // 원샷 전용: 요청 하나에 질문 하나만 받고, 이전 대화는 받지도 보내지도 않는다.
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 
-const MODEL = 'claude-haiku-5-5';
+export const MODEL = 'gpt-6.1-terra';
 const EFFORT = 'medium';
 const MAX_TOKENS = 4096; // 답변 길이 상한
-export const MAX_INPUT_TOKENS = 20_000; // 질문 한 번에 보낼 수 있는 양(채팅 + 첨부파일)
-const MAX_CHARS = 100_000; // 토큰을 세기 전에 걸러내는 글자 수 상한(2만 토큰이 될 수 없는 크기)
+// 질문 한 번에 보낼 수 있는 양(채팅 + 첨부파일). 상황마다 답에 필요한 파일을 한 번에 다 보낼 수 없게 잡은 값이다.
+// 토큰 수는 모델마다 다르게 세어지므로, 모델을 바꾸면 tools/gen-data.mjs 로 다시 재고 이 값도 다시 정한다.
+export const MAX_INPUT_TOKENS = 13_000;
+const MAX_CHARS = 100_000; // 토큰을 세기 전에 걸러내는 글자 수 상한(한도 안에 들어올 수 없는 크기)
 const MAX_B64 = 3_500_000; // 첨부(PDF·이미지) base64 합계 상한. Vercel 요청 본문 한도(4.5MB) 안쪽
 const MAX_BLOCKS = 20;
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
@@ -110,8 +112,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST만 지원합니다.' });
   const headers = req.headers ?? {};
   if (!isSameOrigin(headers)) return res.status(403).json({ error: '이 사이트에서 보낸 요청만 받습니다.' });
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error('ANTHROPIC_API_KEY is not set');
+  if (!process.env.OPENAI_API_KEY) {
+    console.error('OPENAI_API_KEY is not set');
     return res.status(500).json({ error: 'AI 서버에 API 키가 설정되지 않았습니다.' });
   }
   let body;
@@ -131,42 +133,60 @@ export default async function handler(req, res) {
   return ask(res, messages);
 }
 
-// 모델 답에서 글자만 모은다. 답변 길이 상한(생각 포함)에 걸려 잘렸으면 그렇다고 알린다.
+// 검사를 마친 블록 하나를 OpenAI Responses API의 입력 파트로 바꾼다.
+function toPart(b) {
+  if (b.type === 'text') return { type: 'input_text', text: b.text };
+  const url = `data:${b.source.media_type};base64,${b.source.data}`;
+  if (b.type === 'image') return { type: 'input_image', image_url: url, detail: 'auto' };
+  return { type: 'input_file', filename: 'attachment.pdf', file_data: url };
+}
+
+// validate()가 돌려준 messages를 OpenAI 입력으로 바꾼다.
+// tools/gen-data.mjs도 이 함수로 파일 토큰을 재므로, 화면에 보이는 크기와 서버가 세는 크기가 같은 모양에서 나온다.
+export function toInput(messages) {
+  return messages.map((m) => ({ role: m.role, content: typeof m.content === 'string' ? m.content : m.content.map(toPart) }));
+}
+
+const REFUSED = '이 요청에는 답할 수 없습니다. 질문을 바꿔서 다시 시도해 주세요.';
+
+// 모델 답에서 글자만 모은다. 답변 길이 상한(추론 포함)에 걸려 잘렸으면 그렇다고 알린다.
 function replyText(response) {
+  const parts = response.output.flatMap((o) => (o.type === 'message' ? o.content : []));
+  const cut = response.status === 'incomplete' ? response.incomplete_details?.reason : null;
+  if (cut === 'content_filter' || parts.some((p) => p.type === 'refusal')) return REFUSED;
   // 채팅창은 일반 글자만 보여주므로, 지시를 어기고 섞여 나온 굵게 표시(**)는 지운다
-  const text = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('').replace(/\*\*/g, '').trim();
-  if (response.stop_reason !== 'max_tokens') return text || '답변이 비어 있습니다. 다시 시도해 주세요.';
+  const text = parts.filter((p) => p.type === 'output_text').map((p) => p.text).join('').replace(/\*\*/g, '').trim();
+  if (cut !== 'max_output_tokens') return text || '답변이 비어 있습니다. 다시 시도해 주세요.';
   if (!text) return '답변이 길어져 끝까지 만들지 못했습니다. 질문 범위를 좁혀서 다시 물어봐 주세요.';
   return `${text}\n\n(답변이 길어 여기서 끊겼습니다. 더 필요하면 질문을 좁혀서 다시 물어봐 주세요.)`;
 }
 
 async function ask(res, messages) {
   try {
-    const client = new Anthropic();
-    // 채팅 + 첨부파일이 2만 토큰을 넘으면 모델을 부르지 않는다
-    const { input_tokens: used } = await client.messages.countTokens({ model: MODEL, messages });
+    const client = new OpenAI();
+    const input = toInput(messages);
+    // 채팅 + 첨부파일이 한도를 넘으면 모델을 부르지 않는다
+    const { input_tokens: used } = await client.responses.inputTokens.count({ model: MODEL, input });
     if (used > MAX_INPUT_TOKENS) {
       return res.status(400).json({
         error: `질문과 첨부파일이 ${used.toLocaleString('ko-KR')}토큰으로, 한 번에 보낼 수 있는 ${MAX_INPUT_TOKENS.toLocaleString('ko-KR')}토큰을 넘었습니다. 멘션한 파일이나 질문을 줄여 주세요.`,
       });
     }
-    const response = await client.messages.create({
+    const response = await client.responses.create({
       model: MODEL,
-      max_tokens: MAX_TOKENS,
-      output_config: { effort: EFFORT },
-      system: SYSTEM,
-      messages,
+      max_output_tokens: MAX_TOKENS,
+      reasoning: { effort: EFFORT },
+      instructions: SYSTEM,
+      input,
+      store: false, // 응시자 질문을 OpenAI 쪽에 보관하지 않는다
     });
-    if (response.stop_reason === 'refusal') {
-      return res.status(200).json({ reply: '이 요청에는 답할 수 없습니다. 질문을 바꿔서 다시 시도해 주세요.', used });
-    }
     return res.status(200).json({ reply: replyText(response), used });
   } catch (err) {
-    if (err instanceof Anthropic.RateLimitError) {
+    if (err instanceof OpenAI.RateLimitError) {
       return res.status(429).json({ error: '요청이 많습니다. 잠시 후 다시 시도해 주세요.' });
     }
-    if (err instanceof Anthropic.APIError) {
-      console.error('Anthropic API error', err.status, err.message);
+    if (err instanceof OpenAI.APIError) {
+      console.error('OpenAI API error', err.status, err.message);
       return res.status(502).json({ error: 'AI 응답을 받지 못했습니다. 다시 시도해 주세요.' });
     }
     console.error(err);

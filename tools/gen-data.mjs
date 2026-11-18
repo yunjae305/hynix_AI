@@ -1,11 +1,12 @@
 // 문제 데이터 생성기.  실행: node tools/gen-data.mjs  → data.js 와 files/cs_tickets.xlsx 를 다시 만든다.
-// 설계 원칙: 답에 필요한 파일들을 합치면 2만 토큰을 넘는다. 응시자는 질문을 나누고
+// 설계 원칙: 답에 필요한 파일들을 합치면 1만 3천 토큰을 넘는다. 응시자는 질문을 나누고
 // 중간 결과(ID 목록 등)를 다음 질문에 직접 옮겨 적어야 한다(AI는 이전 대화를 기억하지 못한다).
 // 파일별 토큰 크기(tokens)를 API로 재서 넣으므로 키가 필요하다: node --env-file=.env.local tools/gen-data.mjs
 // 난수 시드가 고정이라 다시 돌려도 같은 데이터가 나온다. PDF·PNG는 여기서 만들지 않는다.
 import fs from 'node:fs';
 import ExcelJS from 'exceljs';
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
+import { MODEL, toInput } from '../api/chat.js';
 
 const ROOT = new URL('../', import.meta.url);
 let seed = 20261110;
@@ -74,7 +75,7 @@ function bundle1() {
         { type: 'mc', text: '다음 티켓 중 고객이 환불을 요청한 것이 아닌 티켓은?', options: mc, answer: mc.indexOf(mcNo),
           why: `${mcNo}는 일본어로 "사이즈가 맞지 않으니 교환해 달라"는 내용이다. 정책 4에 따라 교환 요청은 환불 요청이 아니다. 나머지 세 건은 한국어·영어·일본어로 환불을 요청했다.` },
         { type: 'short', text: `VIP 고객이 보낸 '단순 변심 환불' 요청 티켓은 몇 건인가? (숫자만)`, answers: ['5', '5건', '5개'],
-          why: `두 파일을 함께 보내면 2만 토큰을 넘는다. ① customers.csv에서 total_spend_12m이 500만 원 이상인 customer_id 10개를 뽑는다(495만·499만 원인 고객 2명은 VIP가 아니다). ② 그 목록을 적어 cs_tickets.xlsx에서 해당 고객의 티켓을 찾고 원문의 뜻으로 분류한다. 단순 변심 환불은 ${vipChange.map((x) => x.id).sort().join(', ')}로 5건. 불량 환불·교환·배송 문의는 세지 않는다.` },
+          why: `두 파일을 함께 보내면 1만 3천 토큰을 넘는다. ① customers.csv에서 total_spend_12m이 500만 원 이상인 customer_id 10개를 뽑는다(495만·499만 원인 고객 2명은 VIP가 아니다). ② 그 목록을 적어 cs_tickets.xlsx에서 해당 고객의 티켓을 찾고 원문의 뜻으로 분류한다. 단순 변심 환불은 ${vipChange.map((x) => x.id).sort().join(', ')}로 5건. 불량 환불·교환·배송 문의는 세지 않는다.` },
         { type: 'short', text: `VIP 고객이 보낸 '단순 변심 환불' 요청 가운데 정책상 환불이 가능한 건들의 환불액 합계는 얼마인가? (원 단위 숫자만)`, answers: ['260000', '260,000', '260000원', '260,000원', '26만원', '26만'],
           why: `가능한 것은 3건이다. 89,000원(5일), 152,000원(22일, VIP라 30일 이내 적용), 37,000원(9일). 각 건에서 왕복 배송비 6,000원을 빼면 83,000 + 146,000 + 31,000 = 260,000원. 240,000원 건은 개봉, 64,000원 건은 34일 경과로 불가다.` },
       ],
@@ -117,7 +118,7 @@ function bundle2() {
     questions: [
       { type: 'mc', text: 'prompt_v2에서 출력 형식은 지켰지만(format_ok=Y) 라벨이 틀린(label_correct=N) 리뷰들의 공통점은?',
         options: ['모두 일본어로 쓰인 리뷰다', '칭찬과 불만이 한 리뷰에 함께 들어 있다', '모두 환불에 관한 리뷰다', '모두 열 글자 이하의 짧은 리뷰다'], answer: 1,
-        why: `결과와 원문을 함께 보내면 2만 토큰을 넘는다. ① test_results.csv에서 v2이고 format_ok=Y, label_correct=N인 case_id ${wrongIds.length}개(${wrongIds.join(', ')})를 뽑고 ② 그 번호를 적어 reviews.csv에서 원문을 읽는다. 모두 "~는 좋았지만 ~는 나빴다"는 혼합 감정 리뷰다. v2는 긍정·부정 둘 중 하나만 고르게 해서 이런 리뷰를 처리하지 못한다.` },
+        why: `결과와 원문을 함께 보내면 1만 3천 토큰을 넘는다. ① test_results.csv에서 v2이고 format_ok=Y, label_correct=N인 case_id ${wrongIds.length}개(${wrongIds.join(', ')})를 뽑고 ② 그 번호를 적어 reviews.csv에서 원문을 읽는다. 모두 "~는 좋았지만 ~는 나빴다"는 혼합 감정 리뷰다. v2는 긍정·부정 둘 중 하나만 고르게 해서 이런 리뷰를 처리하지 못한다.` },
       { type: 'short', text: 'prompt_v2가 출력 형식을 지키지 못한(format_ok=N) 리뷰들은 모두 같은 언어로 쓰였다. 어떤 언어인가?', answers: ['일본어', '일어', 'japanese', '日本語'],
         why: `① test_results.csv에서 v2의 format_ok=N인 case_id(${failIds.join(', ')})를 뽑고 ② reviews.csv에서 원문을 확인하면 모두 일본어다. v2의 규칙과 예시가 한국어만 가정하고 있다.` },
       { type: 'short', text: `prompt_v2에서 출력 형식은 지켰지만 라벨이 틀린 리뷰들 가운데 '환불이 늦어지는 것'을 불만으로 말한 리뷰의 case_id는? (숫자만)`, answers: [String(refundId)],
@@ -178,7 +179,7 @@ function bundle3() {
         options: ['① 최대 5일까지 이월', '② 다음 해 3월 31일까지 사용', '③ 사용일 3일 전까지 등록', '④ 못 쓴 이월 연차는 수당 지급'], answer: 3,
         why: '수당 지급에 관한 내용은 어떤 청크에도 없다. 출처 표시([HR-2025-03])가 붙어 있어도 원문에 없으면 환각이다. ①은 청크에 근거는 있지만 폐기된 옛 문서다(이 상황의 세 번째 문제).' },
       { type: 'short', text: `retrieved_chunks.json에서 score가 0.75 이상인 청크들의 문서 가운데, doc_registry.csv에서 status가 '폐기'인 문서는 몇 개인가? (숫자만)`, answers: ['2', '2개', '2건'],
-        why: `두 파일을 함께 보내면 2만 토큰을 넘는다. ① retrieved_chunks.json에서 score 0.75 이상인 청크의 doc_id(${hiDocs.join(', ')})를 뽑고 ② 그 목록을 적어 doc_registry.csv에서 status를 확인한다. 폐기는 ${dead.join(', ')}로 2개. 점수가 높다고 현행 문서인 것은 아니다.` },
+        why: `두 파일을 함께 보내면 1만 3천 토큰을 넘는다. ① retrieved_chunks.json에서 score 0.75 이상인 청크의 doc_id(${hiDocs.join(', ')})를 뽑고 ② 그 목록을 적어 doc_registry.csv에서 status를 확인한다. 폐기는 ${dead.join(', ')}로 2개. 점수가 높다고 현행 문서인 것은 아니다.` },
       { type: 'short', text: 'answer_draft.md의 ①이 인용한 문서에서 대체 관계(replaced_by)를 끝까지 따라가면 나오는 현행 문서의 doc_id는?', answers: ['HR-2025-03', 'HR202503', 'HR 2025 03'],
         why: '①이 인용한 HR-2023-07은 폐기이고 replaced_by가 HR-2024-02다. HR-2024-02도 폐기이며 replaced_by가 HR-2025-03(현행)이다. 한 단계만 따라가면 HR-2024-02에서 멈추게 된다. 현행 규정의 이월 한도는 3일이다.' },
     ],
@@ -238,7 +239,7 @@ function bundle4() {
         options: ['출시일을 7월 4일로 연기', '가격 정책을 인상하기로 결정', 'Doyun: 6월 24일까지 보안 점검 완료', 'Minji: 6월 18일까지 테스트 계정 발급'], answer: 1,
         why: '회의에서 Minji는 "Let us revisit pricing next month. No decision today."라고 했다. 가격은 결정되지 않았는데 요약이 없던 결정을 만들어냈다.' },
       { type: 'short', text: '세 번의 회의를 통틀어, 처음 확정된 출시일은 이후 몇 번 변경되었는가? (숫자만)', answers: ['2', '2번', '2회'],
-        why: '회의록 세 개를 한 번에 보내면 2만 토큰을 넘으므로 나눠서 물어야 한다. 6/3에 June 20으로 확정 → 6/10에 June 27로 변경 → 6/17에 July 4로 변경. 2번이다.' },
+        why: '회의록 세 개를 한 번에 보내면 1만 3천 토큰을 넘으므로 나눠서 물어야 한다. 6/3에 June 20으로 확정 → 6/10에 June 27로 변경 → 6/17에 July 4로 변경. 2번이다.' },
       { type: 'short', text: '6월 3일 회의에서 기한과 함께 정해진 업무 중, 6월 17일 회의까지 완료 보고가 한 번도 없는 업무의 담당자 이름은? (회의록에 나온 영문 이름)', answers: ['Taeo', '태오'],
         why: '6/3에 기한(June 9)과 함께 정해진 업무는 Sehun(cache design doc), Yura(draft error messages), Doyun(QA checklist), Taeo(usage dashboard) 4개다. 6/10에 Sehun과 Doyun이, 6/17에 Yura가 완료를 보고했다. Taeo는 6/10에 "still in progress"라고만 했다. 6/3의 업무 목록을 적어 두고 나머지 회의록에 차례로 물어야 한다.' },
     ],
@@ -284,7 +285,7 @@ function bundle5() {
       { type: 'short', text: '동료가 고객 표를 캡처한 customer_table.png를 보냈다. 이 표를 외부 AI에 넣기 전에 정책상 마스킹해야 하는 컬럼은 몇 개인가? (숫자만)', answers: ['3', '3개'],
         why: 'name, phone, email 3개가 제1조의 개인정보에 해당한다. customer_id, plan, monthly_fee, signup_date는 해당하지 않는다. 정책 PDF와 이미지를 함께 멘션하면 AI가 둘 다 읽는다.' },
       { type: 'short', text: `'법무' 부서 직원이 보낸 요청 중 사용 정책을 위반한 것은 몇 건인가? (숫자만)`, answers: ['3', '3건', '3개'],
-        why: `명부와 로그를 함께 보내면 2만 토큰을 넘는다. ① employees.csv에서 법무 직원 employee_id 4개(${legal.join(', ')})를 뽑고 ② 그 목록을 적어 ai_requests.csv에서 이들의 요청 7건을 찾은 뒤 ③ 정책과 대조한다. 위반은 ${legalBad.map((x) => x.id).sort().join(', ')}로 3건. 마스킹된 개인정보(홍*동)와 변수만 적힌 비밀번호는 위반이 아니다.` },
+        why: `명부와 로그를 함께 보내면 1만 3천 토큰을 넘는다. ① employees.csv에서 법무 직원 employee_id 4개(${legal.join(', ')})를 뽑고 ② 그 목록을 적어 ai_requests.csv에서 이들의 요청 7건을 찾은 뒤 ③ 정책과 대조한다. 위반은 ${legalBad.map((x) => x.id).sort().join(', ')}로 3건. 마스킹된 개인정보(홍*동)와 변수만 적힌 비밀번호는 위반이 아니다.` },
     ],
   };
 }
@@ -298,9 +299,9 @@ b1.sheet.split('\n').forEach((l, i) => ws.addRow(l.split(',').map((v) => (i && /
 ws.getRow(1).font = { bold: true }; ws.columns.forEach((c, i) => (c.width = i === 2 ? 60 : 18));
 await wb.xlsx.writeFile(new URL('files/cs_tickets.xlsx', ROOT).pathname);
 
-// 파일별 토큰 크기: 화면에서 첨부할 때 보여준다. index.html의 toApi와 같은 모양으로 잰다.
-if (!process.env.ANTHROPIC_API_KEY) throw new Error('토큰 크기를 재려면 키가 필요합니다: node --env-file=.env.local tools/gen-data.mjs');
-const client = new Anthropic();
+// 파일별 토큰 크기: 화면에서 첨부할 때 보여준다. app.js의 toApi와 같은 모양으로 만들어 서버(api/chat.js)와 같은 방법으로 잰다.
+if (!process.env.OPENAI_API_KEY) throw new Error('토큰 크기를 재려면 키가 필요합니다: node --env-file=.env.local tools/gen-data.mjs');
+const client = new OpenAI();
 const asBlocks = (f) => {
   if (!f.kind || f.kind === 'sheet') return [{ type: 'text', text: `<file name="${f.name}">\n${f.body}\n</file>` }];
   const data = fs.readFileSync(new URL(f.url, ROOT)).toString('base64');
@@ -309,7 +310,7 @@ const asBlocks = (f) => {
 };
 for (const B of BUNDLES) {
   await Promise.all(B.files.map(async (f) => {
-    f.tokens = (await client.messages.countTokens({ model: 'claude-haiku-5-5', messages: [{ role: 'user', content: asBlocks(f) }] })).input_tokens;
+    f.tokens = (await client.responses.inputTokens.count({ model: MODEL, input: toInput([{ role: 'user', content: asBlocks(f) }]) })).input_tokens;
   }));
 }
 
